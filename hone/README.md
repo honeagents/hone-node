@@ -1,4 +1,4 @@
-# Hone SDK (TypeScript)
+# @hone/sdk
 
 **AI Experience Engineering Platform** - Track, evaluate, and improve your LLM applications.
 
@@ -7,21 +7,21 @@ Hone is an SDK-first evaluation platform that automatically tracks LLM calls, ge
 ## Installation
 
 ```bash
-npm install hone-sdk
+npm install @hone/sdk
 # or
-yarn add hone-sdk
+yarn add @hone/sdk
 # or
-pnpm add hone-sdk
+pnpm add @hone/sdk
 ```
 
 With optional provider integrations:
 
 ```bash
 # OpenAI support
-npm install hone-sdk openai
+npm install @hone/sdk openai
 
 # Anthropic support
-npm install hone-sdk @anthropic-ai/sdk
+npm install @hone/sdk @anthropic-ai/sdk
 ```
 
 ## Quick Start
@@ -35,7 +35,7 @@ export HONE_API_KEY=hone_xxx
 ### 2. Track your LLM calls
 
 ```typescript
-import { traceable } from "hone-sdk";
+import { traceable } from "@hone/sdk";
 import OpenAI from "openai";
 
 const openai = new OpenAI();
@@ -61,21 +61,19 @@ Visit [https://honeagents.ai](https://honeagents.ai) to see your traced calls, d
 
 ## Features
 
-### Automatic Tracing
+### Automatic Tracing with `traceable`
 
-The `traceable` wrapper captures:
+The `traceable` function wraps your functions to capture:
 - Function inputs and outputs
 - Execution time and latency
-- Token usage and costs
 - Nested call hierarchies
 - Errors and exceptions
 
 ```typescript
-import { traceable } from "hone-sdk";
+import { traceable } from "@hone/sdk";
 
 const supportAgent = traceable(
   async (userMessage: string) => {
-    // Nested calls are automatically traced
     const context = await retrieveContext(userMessage);
     const response = await generateResponse(userMessage, context);
     return response;
@@ -85,27 +83,27 @@ const supportAgent = traceable(
 
 const retrieveContext = traceable(
   async (query: string) => {
-    // RAG retrieval - becomes a child run
+    // RAG retrieval - becomes a child trace
     return vectorDb.search(query);
   },
-  { name: "retrieve-context", run_type: "retriever" }
+  { name: "retrieve-context" }
 );
 
 const generateResponse = traceable(
   async (query: string, context: string) => {
-    // LLM generation - becomes a child run
+    // LLM generation - becomes a child trace
     return llm.generate(query, context);
   },
-  { name: "generate-response", run_type: "llm" }
+  { name: "generate-response" }
 );
 ```
 
-### Auto-Instrumentation
+### Auto-Instrumentation with Wrappers
 
-Wrap your LLM clients for automatic tracing without decorators:
+Wrap your LLM clients for automatic tracing without `traceable`:
 
 ```typescript
-import { wrapOpenAI } from "hone-sdk/wrappers";
+import { wrapOpenAI } from "@hone/sdk/wrappers";
 import OpenAI from "openai";
 
 // Wrap the OpenAI client
@@ -123,36 +121,11 @@ const response = await client.chat.completions.create({
 For more control, use the Client directly:
 
 ```typescript
-import { Client } from "hone-sdk";
+import { Client } from "@hone/sdk";
 
 const client = new Client();
 
-// Create a run manually
-const run = await client.createRun({
-  name: "my-pipeline",
-  run_type: "chain",
-  inputs: { query: "Hello" },
-});
-
-// ... do work ...
-
-// End the run
-await client.updateRun(run.id, {
-  outputs: { response: "Hi there!" },
-  end_time: new Date().toISOString(),
-});
-```
-
-### Feedback & Evaluation
-
-Record evaluation scores for your runs:
-
-```typescript
-import { Client } from "hone-sdk";
-
-const client = new Client();
-
-// Record feedback
+// Create feedback
 await client.createFeedback({
   runId: "...",
   key: "user_satisfaction",
@@ -172,7 +145,7 @@ await client.createFeedback({
 
 ### Migration from LangSmith
 
-Hone SDK is fully compatible with LangSmith environment variables for easy migration:
+@hone/sdk is fully compatible with LangSmith environment variables for easy migration:
 
 ```bash
 # These still work!
@@ -183,33 +156,6 @@ export LANGSMITH_PROJECT=my-project
 Priority order: `HONE_*` > `LANGSMITH_*` > `LANGCHAIN_*`
 
 ## Advanced Usage
-
-### RunTree for Manual Hierarchy
-
-```typescript
-import { RunTree } from "hone-sdk";
-
-const parentRun = new RunTree({
-  name: "parent-operation",
-  run_type: "chain",
-  inputs: { data: "..." },
-});
-
-await parentRun.postRun();
-
-// Create child runs
-const childRun = await parentRun.createChild({
-  name: "child-operation",
-  run_type: "tool",
-  inputs: { param: "..." },
-});
-
-await childRun.postRun();
-// ... do work ...
-await childRun.patchRun();
-
-await parentRun.patchRun();
-```
 
 ### Custom Metadata
 
@@ -226,24 +172,34 @@ const myAgent = traceable(
 );
 ```
 
+### Accessing Current Run
+
+```typescript
+import { getCurrentRunTree } from "@hone/sdk";
+
+const myFunction = traceable(async () => {
+  const runTree = getCurrentRunTree();
+  if (runTree) {
+    console.log("Current run ID:", runTree.id);
+  }
+});
+```
+
 ## API Reference
 
 ### `traceable(fn, options)`
 
-Wrapper to automatically trace function calls.
+Wraps a function for automatic tracing.
 
 ```typescript
-traceable(
-  fn: (...args: any[]) => any,
-  options?: {
-    name?: string;           // Custom name (default: function name)
-    run_type?: string;       // Run type: chain, llm, tool, etc.
-    metadata?: object;       // Additional metadata
-    tags?: string[];         // Categorization tags
-    client?: Client;         // Custom client instance
-    project_name?: string;   // Override project name
-  }
-)
+traceable(fn: Function, options?: {
+  name?: string;           // Custom name (default: function name)
+  runType?: string;        // Run type: "chain", "llm", "tool", etc.
+  metadata?: object;       // Additional metadata
+  tags?: string[];         // Categorization tags
+  client?: Client;         // Custom client instance
+  projectName?: string;    // Override project name
+})
 ```
 
 ### `Client`
@@ -257,26 +213,19 @@ const client = new Client({
 });
 
 // Methods
-await client.createRun({ ... });      // Create a new run
-await client.updateRun(id, { ... });  // Update/end a run
-await client.createFeedback({ ... }); // Record evaluation feedback
-await client.createDataset({ ... });  // Create a test dataset
-await client.createExample({ ... });  // Add example to dataset
+client.createRun(...)      // Create a new run
+client.updateRun(...)      // Update/end a run
+client.createFeedback(...) // Record evaluation feedback
+client.createDataset(...)  // Create a test dataset
+client.createExample(...)  // Add example to dataset
 ```
 
 ## TypeScript Support
 
-This package is written in TypeScript and includes full type definitions. All types are exported:
+@hone/sdk is written in TypeScript and provides full type definitions.
 
 ```typescript
-import type {
-  Run,
-  RunCreate,
-  Feedback,
-  Dataset,
-  Example,
-  HoneClientConfig,
-} from "hone-sdk";
+import type { Run, Feedback, Dataset, Example } from "@hone/sdk";
 ```
 
 ## License

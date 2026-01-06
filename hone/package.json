@@ -1,52 +1,45 @@
 {
-  "name": "hone-sdk",
+  "name": "@hone/sdk",
   "version": "0.1.0",
   "description": "Hone SDK - AI Experience Engineering Platform for tracking and improving LLM applications",
-  "main": "dist/index.js",
-  "module": "dist/index.mjs",
-  "types": "dist/index.d.ts",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./dist/index.mjs",
       "require": "./dist/index.js",
       "types": "./dist/index.d.ts"
     },
-    "./client": {
-      "import": "./dist/client.mjs",
-      "require": "./dist/client.js",
-      "types": "./dist/client.d.ts"
-    },
-    "./traceable": {
-      "import": "./dist/traceable.mjs",
-      "require": "./dist/traceable.js",
-      "types": "./dist/traceable.d.ts"
-    },
-    "./run_trees": {
-      "import": "./dist/run_trees.mjs",
-      "require": "./dist/run_trees.js",
-      "types": "./dist/run_trees.d.ts"
-    },
-    "./schemas": {
-      "import": "./dist/schemas.mjs",
-      "require": "./dist/schemas.js",
-      "types": "./dist/schemas.d.ts"
-    },
     "./wrappers": {
       "import": "./dist/wrappers/index.mjs",
       "require": "./dist/wrappers/index.js",
       "types": "./dist/wrappers/index.d.ts"
+    },
+    "./wrappers/openai": {
+      "import": "./dist/wrappers/openai.mjs",
+      "require": "./dist/wrappers/openai.js",
+      "types": "./dist/wrappers/openai.d.ts"
+    },
+    "./wrappers/anthropic": {
+      "import": "./dist/wrappers/anthropic.mjs",
+      "require": "./dist/wrappers/anthropic.js",
+      "types": "./dist/wrappers/anthropic.d.ts"
     }
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint src --ext .ts",
     "test": "vitest",
-    "typecheck": "tsc --noEmit"
+    "test:coverage": "vitest --coverage",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "ai",
@@ -69,19 +62,15 @@
   "bugs": {
     "url": "https://github.com/stone-pebble/hone-sdk/issues"
   },
-  "dependencies": {
-    "langsmith": "^0.2.0"
+  "engines": {
+    "node": ">=18.0.0"
   },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "eslint": "^8.0.0",
-    "tsup": "^8.0.0",
-    "typescript": "^5.0.0",
-    "vitest": "^1.0.0"
+  "dependencies": {
+    "langsmith": "^0.4.4"
   },
   "peerDependencies": {
-    "openai": ">=4.0.0",
-    "@anthropic-ai/sdk": ">=0.18.0"
+    "openai": "^4.0.0",
+    "@anthropic-ai/sdk": "^0.18.0"
   },
   "peerDependenciesMeta": {
     "openai": {
@@ -91,7 +80,13 @@
       "optional": true
     }
   },
-  "engines": {
-    "node": ">=18.0.0"
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^1.0.0",
+    "eslint": "^8.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0"
   }
 }

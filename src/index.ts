@@ -1,86 +1,87 @@
 /**
- * Hone SDK - Track and evaluate your LLM calls automatically.
+ * Hone SDK - AI Experience Engineering Platform
+ *
+ * Hone is an SDK-first evaluation platform that automatically tracks LLM calls,
+ * generates test cases from production failures, and helps improve prompts.
+ *
+ * This SDK wraps the LangSmith SDK to redirect all data to Hone's backend
+ * while maintaining full compatibility with LangSmith's battle-tested APIs.
  *
  * @example
  * ```typescript
- * import { Hone } from '@aix/sdk';
+ * import { traceable, Client } from "hone";
  *
- * const aix = new Hone('hone_xxx', 'my-project');
+ * // Set your API key via environment variable
+ * // export HONE_API_KEY=hone_xxx
  *
- * // Wrap functions for automatic tracking
- * const trackedChat = aix.track(async (message: string) => {
- *   return await openai.chat.completions.create({
- *     model: 'gpt-4',
- *     messages: [{ role: 'user', content: message }],
- *   });
- * }, { name: 'chat-completion' });
+ * // Track functions with the traceable wrapper
+ * const myAgent = traceable(
+ *   async (query: string) => {
+ *     // Your LLM call here
+ *     return "response";
+ *   },
+ *   { name: "my-agent" }
+ * );
  *
- * // Use the tracked function
- * const response = await trackedChat('Hello, world!');
- *
- * // Flush before exit
- * await aix.shutdown();
+ * // Or use the client directly
+ * const client = new Client();
  * ```
  *
  * @packageDocumentation
  */
 
-// Main client
-export { Hone } from './client.js';
+export const VERSION = "0.1.0";
 
-// Types
+// Export client
+export { Client } from "./client";
+export type { HoneClientConfig } from "./client";
+
+// Export traceable decorator and utilities
+export {
+  traceable,
+  getCurrentRunTree,
+  isTraceableFunction,
+  withRunTree,
+  ROOT,
+} from "./traceable";
+export type { RunTreeLike, TraceableFunction } from "./traceable";
+
+// Export RunTree for manual trace management
+export { RunTree } from "./run_trees";
+export type { RunTreeConfig } from "./run_trees";
+
+// Export schema types
 export type {
-  HoneOptions,
-  TrackOptions,
-  TrackedCall,
-  PendingTrackedCall,
-  TrackResponse,
-  BatchTrackRequest,
-  TrackableFunction,
-  AsyncFunction,
-  AnyFunction,
-  ProcessorStatus,
-  LLMInfo,
-  ChatMessage,
-  CompletionResponse,
-} from './types.js';
+  Run,
+  RunCreate,
+  RunUpdate,
+  Feedback,
+  FeedbackCreate,
+  Dataset,
+  DatasetCreate,
+  Example,
+  ExampleCreate,
+  TracerSession,
+  DataType,
+  RunType,
+  FeedbackSourceType,
+} from "./schemas";
 
-// Decorators and wrappers
+// Export environment utilities
 export {
-  createTrackDecorator,
-  createTrackWrapper,
-  withTracking,
-  tracked,
-  trackMethod3,
-  trackClass,
-  type TrackedFunction,
-  type Promisify,
-} from './decorators.js';
-
-// Utilities (exported for advanced use cases)
-export {
-  generateUUID,
-  getCurrentTimestamp,
-  getCurrentTimeMs,
-  getElapsedMs,
-  sleep,
-  calculateBackoffMs,
-  safeStringify,
-  safeParse,
-  extractLLMInfo,
-  isPromise,
-  isCompletionResponse,
   getEnvVar,
-  isNodeEnvironment,
-  isBrowserEnvironment,
-  estimateByteSize,
-} from './utils.js';
+  getApiUrl,
+  getApiKey,
+  getProjectName,
+  isTracingEnabled,
+} from "./env";
 
-// Background processor (exported for advanced use cases)
+// Export configuration
 export {
-  BackgroundProcessor,
-  type BackgroundProcessorConfig,
-} from './background.js';
+  HONE_DEFAULT_ENDPOINT,
+  HONE_ENV_PREFIX,
+  ENV_NAMESPACES,
+} from "./config";
 
-// Version
-export const VERSION = '0.1.0';
+// Export wrappers
+export { wrapOpenAI, wrapAnthropic } from "./wrappers";

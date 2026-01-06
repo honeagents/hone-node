@@ -1,20 +1,21 @@
 /**
- * Hone Client
+ * Hone Client Module
  *
- * Main client for interacting with the Hone API.
- * This is a thin wrapper around LangSmith's Client with Hone defaults.
+ * Provides the main Client class for interacting with the Hone API.
+ * This extends LangSmith's Client with Hone-specific defaults.
  */
 
-import { Client as LangSmithClient, ClientConfig } from "langsmith";
-import { getApiUrl, getApiKey, getProjectName } from "./env";
+import { Client as LangSmithClient, type ClientConfig } from "langsmith";
+import { getApiUrl, getApiKey } from "./patch";
 
+/**
+ * Hone Client configuration options.
+ */
 export interface HoneClientConfig extends Partial<ClientConfig> {
   /** Hone API URL. Defaults to HONE_ENDPOINT env var or https://api.honeagents.ai */
   apiUrl?: string;
   /** API key. Defaults to HONE_API_KEY env var */
   apiKey?: string;
-  /** Project name. Defaults to HONE_PROJECT env var or "default" */
-  projectName?: string;
 }
 
 /**
@@ -25,7 +26,7 @@ export interface HoneClientConfig extends Partial<ClientConfig> {
  *
  * @example
  * ```typescript
- * import { Client } from "hone";
+ * import { Client } from "@hone/sdk";
  *
  * // Using environment variables
  * // export HONE_API_KEY=hone_xxx
@@ -40,16 +41,20 @@ export interface HoneClientConfig extends Partial<ClientConfig> {
  */
 export class Client extends LangSmithClient {
   constructor(config: HoneClientConfig = {}) {
-    // Apply Hone defaults
-    const honeConfig: ClientConfig = {
-      ...config,
-      apiUrl: getApiUrl(config.apiUrl),
-      apiKey: getApiKey(config.apiKey),
-    };
+    // Get API URL with Hone defaults
+    const apiUrl = getApiUrl(config.apiUrl);
 
-    super(honeConfig);
+    // Get API key with Hone defaults
+    const apiKey = getApiKey(config.apiKey);
+
+    // Call parent constructor with Hone configuration
+    super({
+      ...config,
+      apiUrl,
+      apiKey,
+    });
   }
 }
 
-// Re-export types that users might need
-export type { ClientConfig };
+// Re-export useful types from langsmith
+export type { ClientConfig } from "langsmith";
