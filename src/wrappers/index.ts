@@ -6,4 +6,6 @@
 
 // Re-export wrappers from LangSmith
 export { wrapOpenAI } from "langsmith/wrappers/openai";
-export { wrapAnthropic } from "langsmith/wrappers/anthropic";
+
+// Note: Anthropic wrapper is not available in langsmith TypeScript SDK
+// For Anthropic tracing, use the traceable() decorator directly

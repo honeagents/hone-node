@@ -57,14 +57,16 @@ export type {
   RunUpdate,
   Feedback,
   FeedbackCreate,
+  FeedbackBase,
+  FeedbackSourceBase,
   Dataset,
-  DatasetCreate,
+  BaseDataset,
   Example,
   ExampleCreate,
   TracerSession,
   DataType,
   RunType,
-  FeedbackSourceType,
+  KVMap,
 } from "./schemas";
 
 // Export environment utilities
@@ -84,4 +86,4 @@ export {
 } from "./config";
 
 // Export wrappers
-export { wrapOpenAI, wrapAnthropic } from "./wrappers";
+export { wrapOpenAI } from "./wrappers";
