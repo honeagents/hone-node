@@ -9,10 +9,11 @@
  *
  * @example
  * ```typescript
- * import { traceable, Client } from "hone";
+ * import { traceable, Client } from "hone-sdk";
  *
  * // Set your API key via environment variable
  * // export HONE_API_KEY=hone_xxx
+ * // export HONE_ENDPOINT=https://api.honeagents.ai
  *
  * // Track functions with the traceable wrapper
  * const myAgent = traceable(
@@ -29,6 +30,12 @@
  *
  * @packageDocumentation
  */
+
+import { initializeEnvironment } from "./env";
+
+// Initialize environment variables on import
+// This syncs HONE_* env vars to LANGSMITH_* so wrappers work correctly
+initializeEnvironment();
 
 export const VERSION = "0.1.0";
 

@@ -92,3 +92,63 @@ export function isTracingEnabled(): boolean {
   const value = getEnvVar("TRACING", "true");
   return value?.toLowerCase() === "true";
 }
+
+/**
+ * Initialize LangSmith environment variables from Hone configuration.
+ *
+ * This function syncs HONE_* environment variables to their LANGSMITH_*
+ * equivalents so that LangSmith's wrappers (wrapOpenAI, traceable) work
+ * correctly with Hone's backend.
+ *
+ * Called automatically when the SDK is imported.
+ */
+export function initializeEnvironment(): void {
+  // Only run in Node.js environment
+  if (typeof process === "undefined" || !process.env) {
+    return;
+  }
+
+  // Sync HONE_ENDPOINT to LANGSMITH_ENDPOINT and LANGCHAIN_ENDPOINT
+  const endpoint = process.env.HONE_ENDPOINT;
+  if (endpoint) {
+    if (!process.env.LANGSMITH_ENDPOINT) {
+      process.env.LANGSMITH_ENDPOINT = endpoint;
+    }
+    if (!process.env.LANGCHAIN_ENDPOINT) {
+      process.env.LANGCHAIN_ENDPOINT = endpoint;
+    }
+  }
+
+  // Sync HONE_API_KEY to LANGSMITH_API_KEY and LANGCHAIN_API_KEY
+  const apiKey = process.env.HONE_API_KEY;
+  if (apiKey) {
+    if (!process.env.LANGSMITH_API_KEY) {
+      process.env.LANGSMITH_API_KEY = apiKey;
+    }
+    if (!process.env.LANGCHAIN_API_KEY) {
+      process.env.LANGCHAIN_API_KEY = apiKey;
+    }
+  }
+
+  // Sync HONE_PROJECT to LANGSMITH_PROJECT and LANGCHAIN_PROJECT
+  const project = process.env.HONE_PROJECT;
+  if (project) {
+    if (!process.env.LANGSMITH_PROJECT) {
+      process.env.LANGSMITH_PROJECT = project;
+    }
+    if (!process.env.LANGCHAIN_PROJECT) {
+      process.env.LANGCHAIN_PROJECT = project;
+    }
+  }
+
+  // Enable tracing by default for Hone (HONE_TRACING defaults to true)
+  const tracing = process.env.HONE_TRACING;
+  if (tracing === undefined || tracing === "true") {
+    if (!process.env.LANGSMITH_TRACING) {
+      process.env.LANGSMITH_TRACING = "true";
+    }
+    if (!process.env.LANGCHAIN_TRACING_V2) {
+      process.env.LANGCHAIN_TRACING_V2 = "true";
+    }
+  }
+}
