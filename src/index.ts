@@ -51,7 +51,7 @@ export {
   withRunTree,
   ROOT,
 } from "./traceable";
-export type { RunTreeLike, TraceableFunction } from "./traceable";
+export type { RunTreeLike, TraceableFunction, HoneTraceableConfig } from "./traceable";
 
 // Export RunTree for manual trace management
 export { RunTree } from "./run_trees";

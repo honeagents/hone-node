@@ -22,19 +22,7 @@ export type {
 } from "langsmith/schemas";
 
 // Feedback types
-export type {
-  FeedbackCreate,
-  FeedbackUpdate,
-} from "langsmith/schemas";
-
-// Dataset types
-export type {
-  DatasetCreate,
-  DatasetUpdate,
-} from "langsmith/schemas";
+export type { FeedbackCreate } from "langsmith/schemas";
 
 // Example types
-export type {
-  ExampleCreate,
-  ExampleUpdate,
-} from "langsmith/schemas";
+export type { ExampleCreate, ExampleUpdate } from "langsmith/schemas";

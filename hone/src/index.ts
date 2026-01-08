@@ -63,6 +63,7 @@ export {
   RunTree,
   type RunTreeConfig,
   type TraceableFunction,
+  type HoneTraceableConfig,
 } from "./traceable";
 
 // Schemas
@@ -76,9 +77,6 @@ export type {
   RunCreate,
   RunUpdate,
   FeedbackCreate,
-  FeedbackUpdate,
-  DatasetCreate,
-  DatasetUpdate,
   ExampleCreate,
   ExampleUpdate,
 } from "./schemas";
