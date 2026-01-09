@@ -49,8 +49,8 @@ export interface AgentConfig {
   name: string;
 
   /**
-   * Optional session ID for grouping calls into a conversation.
-   * Use this when you want multi-turn evaluation.
+   * @deprecated Session IDs are no longer used. Evaluation is now at the trace level.
+   * Each trace (execution) is evaluated independently.
    */
   sessionId?: string;
 }
