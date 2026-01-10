@@ -1,5 +1,7 @@
 # @hone/sdk
 
+**Last Updated:** 2026-01-09
+
 **AI Experience Engineering Platform** - Track, evaluate, and improve your LLM applications.
 
 Hone is an SDK-first evaluation platform that automatically tracks LLM calls, generates test cases from production failures, and helps non-technical users improve prompts.
