@@ -125,7 +125,6 @@ export function traceable<Func extends (...args: any[]) => any>(
   const effectiveSessionId = sessionId;
   if (effectiveSessionId) {
     honeMetadata.session_id = effectiveSessionId;
-    honeMetadata.thread_id = effectiveSessionId;
   }
 
   // Pass to LangSmith traceable with merged metadata
