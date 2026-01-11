@@ -51,8 +51,6 @@ initializeEnvironment();
  * - `hone(client)` - Wrap an LLM client (OpenAI, Anthropic) for tracing
  * - `hone.agent(fn, config)` - Define an agent with a name
  */
-export { hone, agent } from "./hone";
-export type { AgentConfig, HoneAgent } from "./hone";
 
 // ============================================================================
 // Advanced - For users who need more control

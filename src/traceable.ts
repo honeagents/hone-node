@@ -9,8 +9,6 @@ import {
   traceable as langsmithTraceable,
   getCurrentRunTree,
   isTraceableFunction,
-  withRunTree,
-  ROOT,
   type TraceableFunction,
 } from "langsmith/traceable";
 import type { RunTreeConfig } from "langsmith/run_trees";
@@ -19,69 +17,19 @@ import type { RunTreeConfig } from "langsmith/run_trees";
 export { RunTree } from "langsmith/run_trees";
 
 // Re-export utilities
-export { getCurrentRunTree, isTraceableFunction, withRunTree, ROOT };
+export { getCurrentRunTree, isTraceableFunction };
 
 // Re-export types
 export type { RunTreeConfig, TraceableFunction };
-export type { RunTreeLike } from "langsmith/traceable";
 
 /**
  * Hone-specific configuration options for traceable functions.
  */
-export interface HoneTraceableConfig<_Func extends (...args: any[]) => any = (...args: any[]) => any>
-  extends Partial<Omit<RunTreeConfig, "inputs" | "outputs">> {
-  /**
-   * Explicit agent identifier. When set, the agent will be tracked by this ID
-   * even if the system prompt changes. This is useful for versioning prompts
-   * while keeping the same logical agent.
-   *
-   * If not set, agents are identified by their system prompt hash.
-   *
-   * @example
-   * ```typescript
-   * const myAgent = traceable(
-   *   async (query: string) => { ... },
-   *   {
-   *     name: "my-agent",
-   *     agentId: "customer-support-v1",  // Tracks this agent across prompt changes
-   *   }
-   * );
-   * ```
-   */
-  agentId?: string;
-
-  /**
-   * The system prompt for this agent. When provided, Hone will track this
-   * prompt and detect changes across versions. Required when using agentId
-   * if you want Hone to capture the system prompt.
-   *
-   * @example
-   * ```typescript
-   * const SYSTEM_PROMPT = "You are a helpful customer support agent...";
-   *
-   * const myAgent = traceable(
-   *   async (query: string) => {
-   *     const response = await openai.chat.completions.create({
-   *       messages: [
-   *         { role: "system", content: SYSTEM_PROMPT },
-   *         { role: "user", content: query }
-   *       ]
-   *     });
-   *     return response.choices[0].message.content;
-   *   },
-   *   {
-   *     name: "customer-support",
-   *     agentId: "customer-support-v1",
-   *     systemPrompt: SYSTEM_PROMPT,  // Pass the same prompt for tracking
-   *   }
-   * );
-   * ```
-   */
-  systemPrompt?: string;
-
+export interface HoneTraceableConfig<
+  _Func extends (...args: any[]) => any = (...args: any[]) => any,
+> extends Partial<Omit<RunTreeConfig, "inputs" | "outputs">> {
   /**
    * Session ID for grouping multiple calls into a conversation.
-   * Also supports 'threadId' and 'conversationId' as aliases.
    *
    * @example
    * ```typescript
@@ -91,16 +39,6 @@ export interface HoneTraceableConfig<_Func extends (...args: any[]) => any = (..
    * ```
    */
   sessionId?: string;
-
-  /**
-   * Alias for sessionId - used for conversation grouping.
-   */
-  threadId?: string;
-
-  /**
-   * Alias for sessionId - used for conversation grouping.
-   */
-  conversationId?: string;
 
   /**
    * LangSmith-compatible config options.
@@ -118,9 +56,7 @@ export interface HoneTraceableConfig<_Func extends (...args: any[]) => any = (..
  * and any errors.
  *
  * Hone extends LangSmith's traceable with additional options:
- * - `agentId`: Explicitly identify an agent across system prompt changes
- * - `systemPrompt`: The system prompt for this agent (for tracking)
- * - `sessionId`/`threadId`/`conversationId`: Group calls into conversations
+ * - `sessionId`: Group calls into conversations
  *
  * @param wrappedFunc The function to trace
  * @param config Configuration options including name, tags, metadata, and Hone-specific options
@@ -137,10 +73,8 @@ export interface HoneTraceableConfig<_Func extends (...args: any[]) => any = (..
  * );
  * ```
  *
- * @example With agent identification and system prompt
+ * @example With agent identification
  * ```typescript
- * const SYSTEM_PROMPT = "You are a helpful assistant...";
- *
  * const customerSupportAgent = traceable(
  *   async (message: string) => {
  *     // LLM call here
@@ -149,47 +83,46 @@ export interface HoneTraceableConfig<_Func extends (...args: any[]) => any = (..
  *   {
  *     name: "customer-support",
  *     agentId: "customer-support-v1",  // Stable ID across prompt changes
- *     systemPrompt: SYSTEM_PROMPT,     // Track the system prompt
  *     runType: "chain"
  *   }
  * );
  * ```
+ *
+ * @example With session tracking
+ * ```typescript
+ * const chatBot = traceable(
+ *   async (message: string, context: { sessionId: string }) => {
+ *     // Chat logic
+ *     return response;
+ *   },
+ *   {
+ *     name: "chatbot",
+ *     agentId: "main-chatbot"
+ *   }
+ * );
+ *
+ * // Usage with session
+ * await chatBot("Hello", { sessionId: "user-session-123" });
+ * ```
  */
 export function traceable<Func extends (...args: any[]) => any>(
   wrappedFunc: Func,
-  config?: HoneTraceableConfig<Func>
+  config?: HoneTraceableConfig<Func>,
 ): TraceableFunction<Func> {
   if (!config) {
     return langsmithTraceable(wrappedFunc);
   }
 
   // Extract Hone-specific options
-  const {
-    agentId,
-    systemPrompt,
-    sessionId,
-    threadId,
-    conversationId,
-    ...langsmithConfig
-  } = config;
+  const { sessionId, ...langsmithConfig } = config;
 
   // Build metadata with Hone-specific fields
   const honeMetadata: Record<string, unknown> = {
     ...(config.metadata || {}),
   };
 
-  // Add agent ID if provided
-  if (agentId) {
-    honeMetadata.hone_agent_id = agentId;
-  }
-
-  // Add system prompt if provided (for agent detection)
-  if (systemPrompt) {
-    honeMetadata.hone_system_prompt = systemPrompt;
-  }
-
   // Add session ID (use the first non-null value)
-  const effectiveSessionId = sessionId || threadId || conversationId;
+  const effectiveSessionId = sessionId;
   if (effectiveSessionId) {
     honeMetadata.session_id = effectiveSessionId;
     honeMetadata.thread_id = effectiveSessionId;

@@ -1,11 +1,18 @@
 /**
- * Hone Wrappers
+ * Hone Wrappers Module
  *
- * Re-exports LangSmith's auto-instrumentation wrappers for LLM providers.
+ * Re-exports LangSmith's auto-instrumentation wrappers for various LLM providers.
+ * These wrappers automatically trace LLM calls without requiring decorators.
+ *
+ * @example
+ * ```typescript
+ * import { wrapOpenAI } from "@hone/sdk/wrappers";
+ * import OpenAI from "openai";
+ *
+ * const client = wrapOpenAI(new OpenAI());
+ * // All calls are now traced automatically
+ * ```
  */
 
-// Re-export wrappers from LangSmith
-export { wrapOpenAI } from "langsmith/wrappers/openai";
-
-// Note: Anthropic wrapper is not available in langsmith TypeScript SDK
-// For Anthropic tracing, use the traceable() decorator directly
+export { wrapOpenAI } from "./openai";
+// export { wrapAnthropic } from "./anthropic";
