@@ -37,7 +37,14 @@ export type HoneClient = {
 };
 
 export type GetPromptOptions = {
+  /**
+   * The version of the prompt to retrieve. If not specified, the latest version is used.
+   * @note `params` and `defaultPrompt` are not updated remotely without version changes.
+   */
   version?: string;
+  /** Optional name for the prompt for easier identification.
+   *  Will fallback to id if not provided.
+   */
   name?: string;
   /**
    * Parameters to substitute into the prompt. You can also nest prompt calls here.
