@@ -14,13 +14,25 @@ export type HonePrompt = (
 ) => Promise<string>;
 
 export type HoneTrack = (
-  name: string,
+  id: string,
   messages: Message[],
   options?: TrackConversationOptions,
 ) => Promise<void>;
 
 export type HoneClient = {
+  /**
+   * Fetches and evaluates a prompt by its ID with the given options.
+   * @param id The unique identifier for the prompt.
+   * @param options Options for fetching and evaluating the prompt.
+   * @returns A Promise that resolves to the evaluated prompt string.
+   */
   prompt: HonePrompt;
+  /**
+   * Adds messages to track a conversation under the given ID.
+   * @param id The unique identifier for the conversation to track.
+   * @param messages An array of Message objects representing the conversation.
+   * @param options Optional TrackConversationOptions such as sessionId.
+   */
   track: HoneTrack;
 };
 
@@ -84,4 +96,13 @@ export type PromptRequest = {
  * @key The prompt ID
  * @value The newest prompt string
  */
-export type PromptResponse = Record<string, string>;
+export type PromptResponse = Record<string, { prompt: string }>;
+
+export type TrackRequest = {
+  id: string;
+  messages: Message[];
+  sessionId?: string;
+  timestamp: string;
+};
+
+export type TrackResponse = void;

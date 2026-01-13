@@ -6,7 +6,7 @@ import {
   traversePromptNode,
   formatPromptRequest,
   updatePromptNodes,
-} from "./utils";
+} from "./prompt";
 import { PromptNode, GetPromptOptions } from "./types";
 
 describe("utils", () => {

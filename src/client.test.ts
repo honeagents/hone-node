@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hone, createHoneClient } from "./client";
-import { HoneConfig, Message } from "./types";
+import { HoneConfig, Message, PromptResponse } from "./types";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -74,8 +74,8 @@ describe("Hone Client", () => {
 
   describe("prompt", () => {
     it("should fetch prompt successfully and return evaluated result", async () => {
-      const mockResponse = {
-        greeting: "Hello, {{userName}}! Welcome.",
+      const mockResponse: PromptResponse = {
+        greeting: { prompt: "Hello, {{userName}}! Welcome." },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -107,7 +107,9 @@ describe("Hone Client", () => {
     it("should use fallback prompt when API call fails", async () => {
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
-      const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const consoleLogSpy = vi
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
 
       const result = await client.prompt("greeting", {
         defaultPrompt: "Hi, {{userName}}!",
@@ -126,9 +128,9 @@ describe("Hone Client", () => {
     });
 
     it("should handle nested prompts", async () => {
-      const mockResponse = {
-        main: "Welcome: {{intro}}",
-        intro: "Hello, {{userName}}!",
+      const mockResponse: PromptResponse = {
+        main: { prompt: "Welcome: {{intro}}" },
+        intro: { prompt: "Hello, {{userName}}!" },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -152,8 +154,8 @@ describe("Hone Client", () => {
     });
 
     it("should handle prompt with no parameters", async () => {
-      const mockResponse = {
-        static: "This is a static prompt",
+      const mockResponse: PromptResponse = {
+        static: { prompt: "This is a static prompt" },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -176,7 +178,9 @@ describe("Hone Client", () => {
         json: async () => ({ message: "Prompt not found" }),
       });
 
-      const consoleLogSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+      const consoleLogSpy = vi
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
 
       const result = await client.prompt("missing", {
         defaultPrompt: "Fallback prompt",
@@ -268,7 +272,7 @@ describe("Hone Client", () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
 
-      expect(body.name).toBe("test-conversation");
+      expect(body.id).toBe("test-conversation");
       expect(body.messages).toEqual(messages);
       expect(body.timestamp).toBeDefined();
       expect(new Date(body.timestamp)).toBeInstanceOf(Date);
@@ -280,9 +284,7 @@ describe("Hone Client", () => {
         json: async () => ({}),
       });
 
-      const messages: Message[] = [
-        { role: "user", content: "Hello" },
-      ];
+      const messages: Message[] = [{ role: "user", content: "Hello" }];
 
       await client.track("test", messages, { sessionId: "session-123" });
 
@@ -332,9 +334,7 @@ describe("Hone Client", () => {
         json: async () => ({ message: "Server error" }),
       });
 
-      const messages: Message[] = [
-        { role: "user", content: "Test" },
-      ];
+      const messages: Message[] = [{ role: "user", content: "Test" }];
 
       await expect(client.track("test", messages)).rejects.toThrow(
         "Hone API error (500): Server error",

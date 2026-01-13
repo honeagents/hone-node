@@ -7,13 +7,15 @@ import {
   PromptRequest,
   PromptResponse,
   TrackConversationOptions,
+  TrackRequest,
+  TrackResponse,
 } from "./types";
 import {
   evaluatePrompt,
   formatPromptRequest,
   getPromptNode,
   updatePromptNodes,
-} from "./utils";
+} from "./prompt";
 
 const DEFAULT_BASE_URL = "https://honeagents.ai/api";
 const DEFAULT_TIMEOUT = 10000;
@@ -84,7 +86,7 @@ export class Hone implements HoneClient {
       const updatedPromptNode = updatePromptNodes(node, (promptNode) => {
         return {
           ...promptNode,
-          prompt: newPromptMap[promptNode.id] || promptNode.prompt,
+          prompt: newPromptMap[promptNode.id]?.prompt || promptNode.prompt,
         };
       });
       // Params are inserted client-side for flexibility and security
@@ -96,12 +98,12 @@ export class Hone implements HoneClient {
   }
 
   async track(
-    name: string,
+    id: string,
     messages: Message[],
     options: TrackConversationOptions = {},
   ): Promise<void> {
-    await this.makeRequest("/track", "POST", {
-      name,
+    await this.makeRequest<TrackRequest, TrackResponse>("/track", "POST", {
+      id,
       messages,
       sessionId: options.sessionId,
       timestamp: new Date().toISOString(),
