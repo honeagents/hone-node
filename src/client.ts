@@ -81,7 +81,7 @@ export class Hone implements HoneClient {
       const newPromptMap = await this.makeRequest<
         PromptRequest,
         PromptResponse
-      >("/prompts", "POST", formattedRequest);
+      >("/sync_prompts", "POST", formattedRequest);
 
       const updatedPromptNode = updatePromptNodes(node, (promptNode) => {
         return {
