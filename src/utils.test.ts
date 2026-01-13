@@ -112,6 +112,66 @@ describe("utils", () => {
         "footer",
       ]);
     });
+
+    it("should throw an error for self-referencing prompts", () => {
+      const options: GetPromptOptions = {
+        defaultPrompt: "This is a prompt that references {{system-prompt}}",
+        params: {
+          "system-prompt": {
+            defaultPrompt: "This should cause an error",
+          },
+        },
+      };
+
+      expect(() => getPromptNode("system-prompt", options)).toThrow();
+    });
+
+    it("should throw an error for circular prompt references", () => {
+      const options: GetPromptOptions = {
+        defaultPrompt: "A references {{b}}",
+        params: {
+          b: {
+            defaultPrompt: "B references {{a}}",
+            params: {
+              a: {
+                defaultPrompt: "A references {{b}} (circular)",
+              },
+            },
+          },
+        },
+      };
+
+      expect(() => getPromptNode("a", options)).toThrow();
+    });
+
+    it("should throw an error when prompt has placeholders without matching parameters", () => {
+      const options: GetPromptOptions = {
+        defaultPrompt: "Hello {{name}}, your role is {{role}}",
+        params: {
+          name: "Alice",
+          // 'role' is missing
+        },
+      };
+
+      const node = getPromptNode("greeting", options);
+
+      // Should throw when evaluating because 'role' placeholder has no value
+      expect(() => evaluatePrompt(node)).toThrow(/missing parameter.*role/i);
+    });
+
+    it("should throw an error listing all missing parameters", () => {
+      const options: GetPromptOptions = {
+        defaultPrompt: "{{greeting}} {{name}}, you are {{role}} in {{location}}",
+        params: {
+          name: "Bob",
+          // Missing: greeting, role, location
+        },
+      };
+
+      const node = getPromptNode("test", options);
+
+      expect(() => evaluatePrompt(node)).toThrow(/missing parameter/i);
+    });
   });
 
   describe("insertParamsIntoPrompt", () => {

@@ -12,20 +12,39 @@ import {
  *
  * @param id the unique identifier for the prompt node
  * @param options the GetPromptOptions containing prompt details and parameters
+ * @param ancestorIds Set of ancestor IDs to detect circular references
  * @returns
+ * @throws Error if a self-reference or circular reference is detected
  */
 export function getPromptNode(
   id: string,
   options: GetPromptOptions,
+  ancestorIds: Set<string> = new Set(),
 ): PromptNode {
+  // Check for self-reference: if this prompt's params contain a key matching its own id
+  if (options?.params && id in options.params) {
+    throw new Error(
+      `Self-referencing prompt detected: prompt "${id}" cannot reference itself as a parameter`,
+    );
+  }
+
+  // Check for circular reference: if this id is already in the ancestor chain
+  if (ancestorIds.has(id)) {
+    const path = Array.from(ancestorIds).concat(id).join(" -> ");
+    throw new Error(
+      `Circular prompt reference detected: ${path}`,
+    );
+  }
+
   const children: PromptNode[] = [];
+  const newAncestorIds = new Set(ancestorIds).add(id);
 
   const simpleParams: SimpleParams = {};
   for (const [paramId, value] of Object.entries(options?.params || {})) {
     if (typeof value === "string") {
       simpleParams[paramId] = value;
     } else {
-      children.push(getPromptNode(paramId, value));
+      children.push(getPromptNode(paramId, value, newAncestorIds));
     }
   }
 
@@ -44,6 +63,7 @@ export function getPromptNode(
  *
  * @param node The root PromptNode to evaluate.
  * @returns The fully evaluated prompt string.
+ * @throws Error if any placeholders in the prompt don't have corresponding parameter values
  */
 export function evaluatePrompt(node: PromptNode): string {
   const evaluated = new Map<string, string>();
@@ -60,6 +80,9 @@ export function evaluatePrompt(node: PromptNode): string {
       params[child.id] = evaluate(child);
     }
 
+    // Validate that all placeholders have corresponding parameters
+    validatePromptParams(node.prompt, params, node.id);
+
     // Insert evaluated children into this prompt
     const result = insertParamsIntoPrompt(node.prompt, params);
     evaluated.set(node.id, result);
@@ -67,6 +90,39 @@ export function evaluatePrompt(node: PromptNode): string {
   }
 
   return evaluate(node);
+}
+
+/**
+ * Validates that all placeholders in a prompt have corresponding parameter values.
+ *
+ * @param prompt The prompt template to validate
+ * @param params The available parameters
+ * @param nodeId The node ID for error messaging
+ * @throws Error if any placeholders don't have corresponding parameters
+ */
+function validatePromptParams(
+  prompt: string,
+  params: SimpleParams,
+  nodeId: string,
+): void {
+  // Extract all placeholders from the prompt
+  const placeholderRegex = /\{\{(\w+)\}\}/g;
+  const matches = prompt.matchAll(placeholderRegex);
+  const missingParams: string[] = [];
+
+  for (const match of matches) {
+    const paramName = match[1];
+    if (!(paramName in params)) {
+      missingParams.push(paramName);
+    }
+  }
+
+  if (missingParams.length > 0) {
+    const uniqueMissing = [...new Set(missingParams)];
+    throw new Error(
+      `Missing parameter${uniqueMissing.length > 1 ? 's' : ''} in prompt "${nodeId}": ${uniqueMissing.join(', ')}`,
+    );
+  }
 }
 
 /**
