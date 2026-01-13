@@ -19,6 +19,8 @@ import {
 
 const DEFAULT_BASE_URL = "https://honeagents.ai/api";
 const DEFAULT_TIMEOUT = 10000;
+const SUPABASE_ANON_KEY =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 
 export class Hone implements HoneClient {
   private apiKey: string;
@@ -42,11 +44,15 @@ export class Hone implements HoneClient {
     const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
     try {
-      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      const url = `${this.baseUrl}${endpoint}`;
+      console.log(`Hone API Request: ${method} ${url}`);
+      const response = await fetch(url, {
         method,
         headers: {
+          apikey: SUPABASE_ANON_KEY, // Supabase RPC requires lowercase "apikey"
+          "x-api-key": this.apiKey, // Your RPC function reads this for project auth
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
           "Content-Type": "application/json",
-          Authorization: `Bearer ${this.apiKey}`,
           "User-Agent": "hone-sdk-typescript/0.1.0",
         },
         body: body ? JSON.stringify(body) : undefined,

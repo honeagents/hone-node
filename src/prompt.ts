@@ -31,9 +31,7 @@ export function getPromptNode(
   // Check for circular reference: if this id is already in the ancestor chain
   if (ancestorIds.has(id)) {
     const path = Array.from(ancestorIds).concat(id).join(" -> ");
-    throw new Error(
-      `Circular prompt reference detected: ${path}`,
-    );
+    throw new Error(`Circular prompt reference detected: ${path}`);
   }
 
   const children: PromptNode[] = [];
@@ -120,7 +118,7 @@ function validatePromptParams(
   if (missingParams.length > 0) {
     const uniqueMissing = [...new Set(missingParams)];
     throw new Error(
-      `Missing parameter${uniqueMissing.length > 1 ? 's' : ''} in prompt "${nodeId}": ${uniqueMissing.join(', ')}`,
+      `Missing parameter${uniqueMissing.length > 1 ? "s" : ""} in prompt "${nodeId}": ${uniqueMissing.join(", ")}`,
     );
   }
 }
@@ -181,8 +179,10 @@ export function formatPromptRequest(node: PromptNode): PromptRequest {
     map[currentNode.id] = formatNode(currentNode);
   });
   return {
-    rootId: node.id,
-    map,
+    prompts: {
+      rootId: node.id,
+      map,
+    },
   };
 }
 

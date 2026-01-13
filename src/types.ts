@@ -94,8 +94,10 @@ export type PromptRequestItem = Omit<PromptNode, "children" | "params"> & {
 };
 
 export type PromptRequest = {
-  rootId: string;
-  map: Record<string, PromptRequestItem>;
+  prompts: {
+    rootId: string;
+    map: Record<string, PromptRequestItem>;
+  };
 };
 
 /**
