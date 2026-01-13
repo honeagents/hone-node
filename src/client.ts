@@ -1,55 +1,115 @@
-/**
- * Hone Client
- *
- * Main client for interacting with the Hone API.
- * This is a thin wrapper around LangSmith's Client with Hone defaults.
- */
+// client.ts - Create a new file
+import {
+  GetPromptOptions,
+  HoneClient,
+  HoneConfig,
+  Message,
+  PromptRequest,
+  PromptResponse,
+  TrackConversationOptions,
+} from "./types";
+import {
+  evaluatePrompt,
+  formatPromptRequest,
+  getPromptNode,
+  updatePromptNodes,
+} from "./utils";
 
-import { Client as LangSmithClient, ClientConfig } from "langsmith";
-import { getApiUrl, getApiKey, getProjectName } from "./env";
+const DEFAULT_BASE_URL = "https://honeagents.ai/api";
+const DEFAULT_TIMEOUT = 10000;
 
-export interface HoneClientConfig extends Partial<ClientConfig> {
-  /** Hone API URL. Defaults to HONE_ENDPOINT env var or https://api.honeagents.ai */
-  apiUrl?: string;
-  /** API key. Defaults to HONE_API_KEY env var */
-  apiKey?: string;
-  /** Project name. Defaults to HONE_PROJECT env var or "default" */
-  projectName?: string;
-}
+export class Hone implements HoneClient {
+  private apiKey: string;
+  private baseUrl: string;
+  private timeout: number;
 
-/**
- * Hone API Client.
- *
- * A client for tracking LLM calls and managing evaluations with Hone.
- * This extends LangSmith's Client with Hone-specific defaults.
- *
- * @example
- * ```typescript
- * import { Client } from "hone";
- *
- * // Using environment variables
- * // export HONE_API_KEY=hone_xxx
- * const client = new Client();
- *
- * // Or explicit configuration
- * const client = new Client({
- *   apiKey: "hone_xxx",
- *   apiUrl: "https://api.honeagents.ai"
- * });
- * ```
- */
-export class Client extends LangSmithClient {
-  constructor(config: HoneClientConfig = {}) {
-    // Apply Hone defaults
-    const honeConfig: ClientConfig = {
-      ...config,
-      apiUrl: getApiUrl(config.apiUrl),
-      apiKey: getApiKey(config.apiKey),
-    };
+  constructor(config: HoneConfig) {
+    this.apiKey = config.apiKey;
+    // Allow override from env var for local dev, then config, then default
+    this.baseUrl =
+      process.env.HONE_API_URL || config.baseUrl || DEFAULT_BASE_URL;
+    this.timeout = config.timeout || DEFAULT_TIMEOUT;
+  }
 
-    super(honeConfig);
+  private async makeRequest<Request, Response>(
+    endpoint: string,
+    method: string = "GET",
+    body?: Request,
+  ): Promise<Response> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+    try {
+      const response = await fetch(`${this.baseUrl}${endpoint}`, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${this.apiKey}`,
+          "User-Agent": "hone-sdk-typescript/0.1.0",
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorData = (await response.json().catch(() => ({}))) as {
+          message?: string;
+        };
+        throw new Error(
+          `Hone API error (${response.status}): ${errorData.message || response.statusText}`,
+        );
+      }
+
+      return (await response.json()) as Response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error(`Hone API request timed out after ${this.timeout}ms`);
+      }
+      throw error;
+    }
+  }
+
+  async prompt(id: string, options: GetPromptOptions): Promise<string> {
+    const node = getPromptNode(id, options);
+    try {
+      const formattedRequest = formatPromptRequest(node);
+      const newPromptMap = await this.makeRequest<
+        PromptRequest,
+        PromptResponse
+      >("/prompts", "POST", formattedRequest);
+
+      const updatedPromptNode = updatePromptNodes(node, (promptNode) => {
+        return {
+          ...promptNode,
+          prompt: newPromptMap[promptNode.id] || promptNode.prompt,
+        };
+      });
+      // Params are inserted client-side for flexibility and security
+      return evaluatePrompt(updatedPromptNode);
+    } catch (error) {
+      console.log("Error fetching prompt, using fallback:", error);
+      return evaluatePrompt(node);
+    }
+  }
+
+  async track(
+    name: string,
+    messages: Message[],
+    options: TrackConversationOptions = {},
+  ): Promise<void> {
+    await this.makeRequest("/track", "POST", {
+      name,
+      messages,
+      sessionId: options.sessionId,
+      timestamp: new Date().toISOString(),
+    });
   }
 }
 
-// Re-export types that users might need
-export type { ClientConfig };
+// Factory function for easier initialization
+export function createHoneClient(config: HoneConfig): HoneClient {
+  return new Hone(config);
+}
