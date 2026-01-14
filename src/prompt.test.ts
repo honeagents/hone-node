@@ -463,8 +463,8 @@ describe("utils", () => {
 
       const request = formatPromptRequest(node);
 
-      expect(request.rootId).toBe("greeting");
-      expect(request.map["greeting"]).toEqual({
+      expect(request.prompts.rootId).toBe("greeting");
+      expect(request.prompts.map["greeting"]).toEqual({
         id: "greeting",
         name: "greeting-prompt",
         version: "v1",
@@ -491,8 +491,8 @@ describe("utils", () => {
 
       const request = formatPromptRequest(node);
 
-      expect(request.rootId).toBe("main");
-      expect(request.map["main"]).toEqual({
+      expect(request.prompts.rootId).toBe("main");
+      expect(request.prompts.map["main"]).toEqual({
         id: "main",
         name: undefined,
         version: undefined,
@@ -500,7 +500,7 @@ describe("utils", () => {
         paramKeys: [],
         childrenIds: ["introduction"],
       });
-      expect(request.map["introduction"]).toEqual({
+      expect(request.prompts.map["introduction"]).toEqual({
         id: "introduction",
         name: undefined,
         version: undefined,
@@ -534,11 +534,11 @@ describe("utils", () => {
 
       const request = formatPromptRequest(node);
 
-      expect(request.rootId).toBe("doc");
-      expect(Object.keys(request.map)).toHaveLength(3);
-      expect(request.map["doc"].childrenIds).toEqual(["section"]);
-      expect(request.map["section"].childrenIds).toEqual(["paragraph"]);
-      expect(request.map["paragraph"].paramKeys).toEqual(["text"]);
+      expect(request.prompts.rootId).toBe("doc");
+      expect(Object.keys(request.prompts.map)).toHaveLength(3);
+      expect(request.prompts.map["doc"].childrenIds).toEqual(["section"]);
+      expect(request.prompts.map["section"].childrenIds).toEqual(["paragraph"]);
+      expect(request.prompts.map["paragraph"].paramKeys).toEqual(["text"]);
     });
 
     it("should handle multiple children", () => {
@@ -570,12 +570,12 @@ describe("utils", () => {
 
       const request = formatPromptRequest(node);
 
-      expect(request.map["document"].childrenIds).toEqual([
+      expect(request.prompts.map["document"].childrenIds).toEqual([
         "header",
         "body",
         "footer",
       ]);
-      expect(Object.keys(request.map)).toHaveLength(4);
+      expect(Object.keys(request.prompts.map)).toHaveLength(4);
     });
   });
 

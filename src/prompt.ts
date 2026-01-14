@@ -162,7 +162,10 @@ export function traversePromptNode(
  */
 export function formatPromptRequest(node: PromptNode): PromptRequest {
   function formatNode(node: PromptNode): PromptRequestItem {
-    const paramKeys = Object.keys(node.params);
+    const paramKeys = [
+      ...Object.keys(node.params),
+      ...node.children.map((child) => child.id),
+    ];
     return {
       id: node.id,
       name: node.name,
