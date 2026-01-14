@@ -21,6 +21,9 @@
     "dev": "tsup --watch",
     "lint": "eslint src --ext .ts",
     "test": "vitest",
+    "test:unit": "vitest run",
+    "test:integration": "vitest run --config ../tests/integration/vitest.config.ts",
+    "test:integration:watch": "vitest --config ../tests/integration/vitest.config.ts",
     "typecheck": "tsc --noEmit"
   },
   "keywords": [
