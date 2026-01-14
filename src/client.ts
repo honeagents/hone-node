@@ -106,7 +106,7 @@ export class Hone implements HoneClient {
   async track(
     id: string,
     messages: Message[],
-    options: TrackConversationOptions = {},
+    options: TrackConversationOptions,
   ): Promise<void> {
     await this.makeRequest<TrackRequest, TrackResponse>("/track", "POST", {
       id,

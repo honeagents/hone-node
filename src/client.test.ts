@@ -255,7 +255,7 @@ describe("Hone Client", () => {
         { role: "assistant", content: "Hi there!" },
       ];
 
-      await client.track("test-conversation", messages);
+      await client.track("test-conversation", messages, { sessionId: "session-xyz" });
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
@@ -300,7 +300,7 @@ describe("Hone Client", () => {
         json: async () => ({}),
       });
 
-      await client.track("test", []);
+      await client.track("test", [], { sessionId: "session-empty" });
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
@@ -318,7 +318,7 @@ describe("Hone Client", () => {
         { role: "user", content: "Thanks!" },
       ];
 
-      await client.track("multi-turn", messages);
+      await client.track("multi-turn", messages, { sessionId: "session-multi" });
 
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
@@ -336,7 +336,7 @@ describe("Hone Client", () => {
 
       const messages: Message[] = [{ role: "user", content: "Test" }];
 
-      await expect(client.track("test", messages)).rejects.toThrow(
+      await expect(client.track("test", messages, { sessionId: "session-123" })).rejects.toThrow(
         "Hone API error (500): Server error",
       );
     });
@@ -352,7 +352,7 @@ describe("Hone Client", () => {
       });
 
       await expect(
-        client.track("test", [{ role: "user", content: "Hi" }]),
+        client.track("test", [{ role: "user", content: "Hi" }], { sessionId: "session-123" }),
       ).rejects.toThrow("Hone API error (401): Invalid API key");
     });
 
@@ -365,7 +365,7 @@ describe("Hone Client", () => {
       });
 
       await expect(
-        client.track("test", [{ role: "user", content: "Hi" }]),
+        client.track("test", [{ role: "user", content: "Hi" }], { sessionId: "session-123" }),
       ).rejects.toThrow("Hone API error (403): Forbidden");
     });
 
@@ -380,7 +380,7 @@ describe("Hone Client", () => {
       });
 
       await expect(
-        client.track("test", [{ role: "user", content: "Hi" }]),
+        client.track("test", [{ role: "user", content: "Hi" }], { sessionId: "session-123" }),
       ).rejects.toThrow("Hone API error (500): Internal Server Error");
     });
 
@@ -390,7 +390,7 @@ describe("Hone Client", () => {
         json: async () => ({}),
       });
 
-      await client.track("test", [{ role: "user", content: "Test" }]);
+      await client.track("test", [{ role: "user", content: "Test" }], { sessionId: "session-123" });
 
       const callArgs = mockFetch.mock.calls[0];
       expect(callArgs[1].headers["User-Agent"]).toBe(
@@ -432,7 +432,7 @@ describe("Hone Client", () => {
         json: async () => ({}),
       });
 
-      await client.track("test", []);
+      await client.track("test", [], { sessionId: "session-123" });
 
       const callArgs = mockFetch.mock.calls[0];
       const headers = callArgs[1].headers;
@@ -450,7 +450,7 @@ describe("Hone Client", () => {
         json: async () => ({}),
       });
 
-      await client.track("test", []);
+      await client.track("test", [], { sessionId: "session-123" });
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://honeagents.ai/api/track",
@@ -469,7 +469,7 @@ describe("Hone Client", () => {
         json: async () => ({}),
       });
 
-      await customClient.track("test", []);
+      await customClient.track("test", [], { sessionId: "session-123" });
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://custom.api.com/track",
@@ -488,7 +488,7 @@ describe("Hone Client", () => {
         json: async () => ({}),
       });
 
-      await customClient.track("test", []);
+      await customClient.track("test", [], { sessionId: "session-123" });
 
       expect(mockFetch).toHaveBeenCalledWith(
         "https://api.example.com/v1/track",

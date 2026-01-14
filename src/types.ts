@@ -16,7 +16,7 @@ export type HonePrompt = (
 export type HoneTrack = (
   id: string,
   messages: Message[],
-  options?: TrackConversationOptions,
+  options: TrackConversationOptions,
 ) => Promise<void>;
 
 export type HoneClient = {
@@ -69,7 +69,7 @@ export type Message = {
 };
 
 export type TrackConversationOptions = {
-  sessionId?: string;
+  sessionId: string;
 };
 
 export type SimpleParams = Record<string, string>;
@@ -110,7 +110,7 @@ export type PromptResponse = Record<string, { prompt: string }>;
 export type TrackRequest = {
   id: string;
   messages: Message[];
-  sessionId?: string;
+  sessionId: string;
   timestamp: string;
 };
 
