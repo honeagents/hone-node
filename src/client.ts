@@ -1,4 +1,4 @@
-// client.ts - Create a new file
+// client.ts
 import {
   GetPromptOptions,
   HoneClient,
@@ -19,8 +19,6 @@ import {
 
 const DEFAULT_BASE_URL = "https://honeagents.ai/api";
 const DEFAULT_TIMEOUT = 10000;
-const SUPABASE_ANON_KEY =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 
 export class Hone implements HoneClient {
   private apiKey: string;
@@ -49,9 +47,7 @@ export class Hone implements HoneClient {
       const response = await fetch(url, {
         method,
         headers: {
-          apikey: SUPABASE_ANON_KEY, // Supabase RPC requires lowercase "apikey"
-          "x-api-key": this.apiKey, // Your RPC function reads this for project auth
-          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+          "x-api-key": this.apiKey,
           "Content-Type": "application/json",
           "User-Agent": "hone-sdk-typescript/0.1.0",
         },
@@ -64,9 +60,10 @@ export class Hone implements HoneClient {
       if (!response.ok) {
         const errorData = (await response.json().catch(() => ({}))) as {
           message?: string;
+          error?: string;
         };
         throw new Error(
-          `Hone API error (${response.status}): ${errorData.message || response.statusText}`,
+          `Hone API error (${response.status}): ${errorData.error || errorData.message || response.statusText}`,
         );
       }
 
