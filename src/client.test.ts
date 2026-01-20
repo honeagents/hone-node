@@ -298,6 +298,186 @@ describe("Hone Client", () => {
       expect(body.agents.map["test"].presencePenalty).toBe(0.3);
       expect(body.agents.map["test"].stopSequences).toEqual(["END"]);
     });
+
+    it("should return null for missing hyperparameters from API", async () => {
+      // API returns only model and temperature, others are null
+      const mockResponse: AgentResponse = {
+        test: {
+          prompt: "Hello",
+          model: "gpt-4",
+          temperature: 0.5,
+          maxTokens: null,
+          topP: null,
+          frequencyPenalty: null,
+          presencePenalty: null,
+          stopSequences: [],
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      const result = await client.agent("test", {
+        defaultPrompt: "Hello",
+      });
+
+      expect(result.systemPrompt).toBe("Hello");
+      expect(result.model).toBe("gpt-4");
+      expect(result.temperature).toBe(0.5);
+      expect(result.maxTokens).toBeNull();
+      expect(result.topP).toBeNull();
+      expect(result.frequencyPenalty).toBeNull();
+      expect(result.presencePenalty).toBeNull();
+      expect(result.stopSequences).toEqual([]);
+    });
+
+    it("should prefer API hyperparameters over SDK defaults", async () => {
+      // API returns different values than SDK defaults
+      const mockResponse: AgentResponse = {
+        test: {
+          prompt: "Hello",
+          model: "claude-3-opus",
+          temperature: 0.9,
+          maxTokens: 2000,
+          topP: 0.95,
+          frequencyPenalty: 0.2,
+          presencePenalty: 0.3,
+          stopSequences: ["STOP"],
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      // SDK provides different defaults
+      const result = await client.agent("test", {
+        defaultPrompt: "Hello",
+        model: "gpt-4",
+        temperature: 0.5,
+        maxTokens: 1000,
+        topP: 0.8,
+        frequencyPenalty: 0.1,
+        presencePenalty: 0.1,
+        stopSequences: ["END"],
+      });
+
+      // API values should win
+      expect(result.model).toBe("claude-3-opus");
+      expect(result.temperature).toBe(0.9);
+      expect(result.maxTokens).toBe(2000);
+      expect(result.topP).toBe(0.95);
+      expect(result.frequencyPenalty).toBe(0.2);
+      expect(result.presencePenalty).toBe(0.3);
+      expect(result.stopSequences).toEqual(["STOP"]);
+    });
+
+    it("should use SDK defaults when API returns null hyperparameters", async () => {
+      // API explicitly returns null for hyperparameters
+      const mockResponse: AgentResponse = {
+        test: {
+          prompt: "Hello",
+          model: null,
+          temperature: null,
+          maxTokens: null,
+          topP: null,
+          frequencyPenalty: null,
+          presencePenalty: null,
+          stopSequences: [],
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      // SDK provides defaults
+      const result = await client.agent("test", {
+        defaultPrompt: "Hello",
+        model: "gpt-4",
+        temperature: 0.7,
+        maxTokens: 1000,
+      });
+
+      // SDK defaults should be used since API returned null
+      expect(result.model).toBe("gpt-4");
+      expect(result.temperature).toBe(0.7);
+      expect(result.maxTokens).toBe(1000);
+      // These weren't specified in SDK either, so remain null
+      expect(result.topP).toBeNull();
+      expect(result.frequencyPenalty).toBeNull();
+      expect(result.presencePenalty).toBeNull();
+      expect(result.stopSequences).toEqual([]);
+    });
+
+    it("should return all null hyperparameters when not specified anywhere", async () => {
+      const mockResponse: AgentResponse = {
+        test: {
+          prompt: "Hello",
+          model: null,
+          temperature: null,
+          maxTokens: null,
+          topP: null,
+          frequencyPenalty: null,
+          presencePenalty: null,
+          stopSequences: [],
+        },
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse,
+      });
+
+      // No hyperparameters specified in SDK either
+      const result = await client.agent("test", {
+        defaultPrompt: "Hello",
+      });
+
+      expect(result.systemPrompt).toBe("Hello");
+      expect(result.model).toBeNull();
+      expect(result.temperature).toBeNull();
+      expect(result.maxTokens).toBeNull();
+      expect(result.topP).toBeNull();
+      expect(result.frequencyPenalty).toBeNull();
+      expect(result.presencePenalty).toBeNull();
+      expect(result.stopSequences).toEqual([]);
+    });
+
+    it("should return SDK defaults in fallback when API fails", async () => {
+      mockFetch.mockRejectedValueOnce(new Error("Network error"));
+
+      const consoleLogSpy = vi
+        .spyOn(console, "log")
+        .mockImplementation(() => {});
+
+      const result = await client.agent("test", {
+        defaultPrompt: "Hello {{name}}",
+        model: "gpt-4",
+        temperature: 0.7,
+        maxTokens: 1000,
+        topP: 0.9,
+        frequencyPenalty: 0.1,
+        presencePenalty: 0.2,
+        stopSequences: ["END"],
+        params: { name: "World" },
+      });
+
+      expect(result.systemPrompt).toBe("Hello World");
+      expect(result.model).toBe("gpt-4");
+      expect(result.temperature).toBe(0.7);
+      expect(result.maxTokens).toBe(1000);
+      expect(result.topP).toBe(0.9);
+      expect(result.frequencyPenalty).toBe(0.1);
+      expect(result.presencePenalty).toBe(0.2);
+      expect(result.stopSequences).toEqual(["END"]);
+
+      consoleLogSpy.mockRestore();
+    });
   });
 
   describe("track", () => {
