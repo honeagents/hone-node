@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hone, createHoneClient } from "./client";
-import { HoneConfig, Message, PromptResponse } from "./types";
+import { HoneConfig, Message, AgentResponse } from "./types";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -72,9 +72,9 @@ describe("Hone Client", () => {
     });
   });
 
-  describe("prompt", () => {
-    it("should fetch prompt successfully and return evaluated result", async () => {
-      const mockResponse: PromptResponse = {
+  describe("agent", () => {
+    it("should fetch agent successfully and return evaluated result", async () => {
+      const mockResponse: AgentResponse = {
         greeting: { prompt: "Hello, {{userName}}! Welcome." },
       };
 
@@ -83,7 +83,7 @@ describe("Hone Client", () => {
         json: async () => mockResponse,
       });
 
-      const result = await client.prompt("greeting", {
+      const result = await client.agent("greeting", {
         defaultPrompt: "Hi, {{userName}}!",
         params: {
           userName: "Alice",
@@ -93,12 +93,12 @@ describe("Hone Client", () => {
       expect(result).toBe("Hello, Alice! Welcome.");
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://honeagents.ai/api/prompts",
+        "https://honeagents.ai/api/sync_agents",
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
             "Content-Type": "application/json",
-            Authorization: `Bearer ${mockApiKey}`,
+            "x-api-key": mockApiKey,
           }),
         }),
       );
@@ -111,7 +111,7 @@ describe("Hone Client", () => {
         .spyOn(console, "log")
         .mockImplementation(() => {});
 
-      const result = await client.prompt("greeting", {
+      const result = await client.agent("greeting", {
         defaultPrompt: "Hi, {{userName}}!",
         params: {
           userName: "Bob",
@@ -120,15 +120,15 @@ describe("Hone Client", () => {
 
       expect(result).toBe("Hi, Bob!");
       expect(consoleLogSpy).toHaveBeenCalledWith(
-        "Error fetching prompt, using fallback:",
+        "Error fetching agent, using fallback:",
         expect.any(Error),
       );
 
       consoleLogSpy.mockRestore();
     });
 
-    it("should handle nested prompts", async () => {
-      const mockResponse: PromptResponse = {
+    it("should handle nested agents", async () => {
+      const mockResponse: AgentResponse = {
         main: { prompt: "Welcome: {{intro}}" },
         intro: { prompt: "Hello, {{userName}}!" },
       };
@@ -138,7 +138,7 @@ describe("Hone Client", () => {
         json: async () => mockResponse,
       });
 
-      const result = await client.prompt("main", {
+      const result = await client.agent("main", {
         defaultPrompt: "Fallback: {{intro}}",
         params: {
           intro: {
@@ -153,8 +153,8 @@ describe("Hone Client", () => {
       expect(result).toBe("Welcome: Hello, Charlie!");
     });
 
-    it("should handle prompt with no parameters", async () => {
-      const mockResponse: PromptResponse = {
+    it("should handle agent with no parameters", async () => {
+      const mockResponse: AgentResponse = {
         static: { prompt: "This is a static prompt" },
       };
 
@@ -163,7 +163,7 @@ describe("Hone Client", () => {
         json: async () => mockResponse,
       });
 
-      const result = await client.prompt("static", {
+      const result = await client.agent("static", {
         defaultPrompt: "Fallback static",
       });
 
@@ -175,14 +175,14 @@ describe("Hone Client", () => {
         ok: false,
         status: 404,
         statusText: "Not Found",
-        json: async () => ({ message: "Prompt not found" }),
+        json: async () => ({ message: "Agent not found" }),
       });
 
       const consoleLogSpy = vi
         .spyOn(console, "log")
         .mockImplementation(() => {});
 
-      const result = await client.prompt("missing", {
+      const result = await client.agent("missing", {
         defaultPrompt: "Fallback prompt",
       });
 
@@ -191,9 +191,9 @@ describe("Hone Client", () => {
       consoleLogSpy.mockRestore();
     });
 
-    it("should handle version and name in prompt options", async () => {
+    it("should handle majorVersion and name in agent options", async () => {
       const mockResponse = {
-        "greeting-v2": "Hello v2!",
+        "greeting-v2": { prompt: "Hello v2!" },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -201,8 +201,8 @@ describe("Hone Client", () => {
         json: async () => mockResponse,
       });
 
-      await client.prompt("greeting-v2", {
-        version: "v2",
+      await client.agent("greeting-v2", {
+        majorVersion: 2,
         name: "greeting",
         defaultPrompt: "Hello v1!",
       });
@@ -210,8 +210,8 @@ describe("Hone Client", () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
 
-      expect(body.map["greeting-v2"].version).toBe("v2");
-      expect(body.map["greeting-v2"].name).toBe("greeting");
+      expect(body.agents.map["greeting-v2"].majorVersion).toBe(2);
+      expect(body.agents.map["greeting-v2"].name).toBe("greeting");
     });
 
     it("should send correct request format to API", async () => {
@@ -220,7 +220,7 @@ describe("Hone Client", () => {
         json: async () => ({}),
       });
 
-      await client.prompt("test", {
+      await client.agent("test", {
         defaultPrompt: "Test {{param1}}",
         params: {
           param1: "value1",
@@ -230,16 +230,52 @@ describe("Hone Client", () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
 
-      expect(body).toHaveProperty("rootId", "test");
-      expect(body).toHaveProperty("map");
-      expect(body.map["test"]).toEqual({
+      expect(body.agents).toHaveProperty("rootId", "test");
+      expect(body.agents).toHaveProperty("map");
+      expect(body.agents.map["test"]).toEqual({
         id: "test",
         name: undefined,
-        version: undefined,
+        majorVersion: undefined,
         prompt: "Test {{param1}}",
         paramKeys: ["param1"],
         childrenIds: [],
+        model: undefined,
+        temperature: undefined,
+        maxTokens: undefined,
+        topP: undefined,
+        frequencyPenalty: undefined,
+        presencePenalty: undefined,
+        stopSequences: undefined,
       });
+    });
+
+    it("should send hyperparameters in request", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({}),
+      });
+
+      await client.agent("test", {
+        defaultPrompt: "Test prompt",
+        model: "gpt-4",
+        temperature: 0.7,
+        maxTokens: 1000,
+        topP: 0.9,
+        frequencyPenalty: 0.5,
+        presencePenalty: 0.3,
+        stopSequences: ["END"],
+      });
+
+      const callArgs = mockFetch.mock.calls[0];
+      const body = JSON.parse(callArgs[1].body);
+
+      expect(body.agents.map["test"].model).toBe("gpt-4");
+      expect(body.agents.map["test"].temperature).toBe(0.7);
+      expect(body.agents.map["test"].maxTokens).toBe(1000);
+      expect(body.agents.map["test"].topP).toBe(0.9);
+      expect(body.agents.map["test"].frequencyPenalty).toBe(0.5);
+      expect(body.agents.map["test"].presencePenalty).toBe(0.3);
+      expect(body.agents.map["test"].stopSequences).toEqual(["END"]);
     });
   });
 
@@ -259,12 +295,12 @@ describe("Hone Client", () => {
 
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://honeagents.ai/api/track",
+        "https://honeagents.ai/api/insert_runs",
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
             "Content-Type": "application/json",
-            Authorization: `Bearer ${mockApiKey}`,
+            "x-api-key": mockApiKey,
           }),
         }),
       );
@@ -408,7 +444,7 @@ describe("Hone Client", () => {
       const client = createHoneClient(config);
 
       expect(client).toBeInstanceOf(Hone);
-      expect(client).toHaveProperty("prompt");
+      expect(client).toHaveProperty("agent");
       expect(client).toHaveProperty("track");
     });
 
@@ -438,7 +474,7 @@ describe("Hone Client", () => {
       const headers = callArgs[1].headers;
 
       expect(headers["Content-Type"]).toBe("application/json");
-      expect(headers["Authorization"]).toBe(`Bearer ${mockApiKey}`);
+      expect(headers["x-api-key"]).toBe(mockApiKey);
       expect(headers["User-Agent"]).toBe("hone-sdk-typescript/0.1.0");
     });
   });
@@ -453,7 +489,7 @@ describe("Hone Client", () => {
       await client.track("test", [], { sessionId: "session-123" });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://honeagents.ai/api/track",
+        "https://honeagents.ai/api/insert_runs",
         expect.any(Object),
       );
     });
@@ -472,7 +508,7 @@ describe("Hone Client", () => {
       await customClient.track("test", [], { sessionId: "session-123" });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://custom.api.com/track",
+        "https://custom.api.com/insert_runs",
         expect.any(Object),
       );
     });
@@ -491,7 +527,7 @@ describe("Hone Client", () => {
       await customClient.track("test", [], { sessionId: "session-123" });
 
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://api.example.com/v1/track",
+        "https://api.example.com/v1/insert_runs",
         expect.any(Object),
       );
     });

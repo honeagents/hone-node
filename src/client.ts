@@ -1,21 +1,21 @@
 // client.ts
 import {
-  GetPromptOptions,
+  GetAgentOptions,
   HoneClient,
   HoneConfig,
   Message,
-  PromptRequest,
-  PromptResponse,
+  AgentRequest,
+  AgentResponse,
   TrackConversationOptions,
   TrackRequest,
   TrackResponse,
 } from "./types";
 import {
-  evaluatePrompt,
-  formatPromptRequest,
-  getPromptNode,
-  updatePromptNodes,
-} from "./prompt";
+  evaluateAgent,
+  formatAgentRequest,
+  getAgentNode,
+  updateAgentNodes,
+} from "./agent";
 
 const DEFAULT_BASE_URL = "https://honeagents.ai/api";
 const DEFAULT_TIMEOUT = 10000;
@@ -77,27 +77,34 @@ export class Hone implements HoneClient {
     }
   }
 
-  async prompt(id: string, options: GetPromptOptions): Promise<string> {
-    const node = getPromptNode(id, options);
+  async agent(id: string, options: GetAgentOptions): Promise<string> {
+    const node = getAgentNode(id, options);
     try {
-      const formattedRequest = formatPromptRequest(node);
-      const newPromptMap = await this.makeRequest<
-        PromptRequest,
-        PromptResponse
-      >("/sync_prompts", "POST", formattedRequest);
+      const formattedRequest = formatAgentRequest(node);
+      const newAgentMap = await this.makeRequest<
+        AgentRequest,
+        AgentResponse
+      >("/sync_agents", "POST", formattedRequest);
 
-      const updatedPromptNode = updatePromptNodes(node, (promptNode) => {
+      const updatedAgentNode = updateAgentNodes(node, (agentNode) => {
         return {
-          ...promptNode,
-          prompt: newPromptMap[promptNode.id]?.prompt || promptNode.prompt,
+          ...agentNode,
+          prompt: newAgentMap[agentNode.id]?.prompt || agentNode.prompt,
         };
       });
       // Params are inserted client-side for flexibility and security
-      return evaluatePrompt(updatedPromptNode);
+      return evaluateAgent(updatedAgentNode);
     } catch (error) {
-      console.log("Error fetching prompt, using fallback:", error);
-      return evaluatePrompt(node);
+      console.log("Error fetching agent, using fallback:", error);
+      return evaluateAgent(node);
     }
+  }
+
+  /**
+   * @deprecated Use agent() instead
+   */
+  async prompt(id: string, options: GetAgentOptions): Promise<string> {
+    return this.agent(id, options);
   }
 
   async track(

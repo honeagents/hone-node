@@ -1,70 +1,107 @@
 import { describe, it, expect } from "vitest";
 import {
-  getPromptNode,
-  evaluatePrompt,
+  getAgentNode,
+  evaluateAgent,
   insertParamsIntoPrompt,
-  traversePromptNode,
-  formatPromptRequest,
-  updatePromptNodes,
-} from "./prompt";
-import { PromptNode, GetPromptOptions } from "./types";
+  traverseAgentNode,
+  formatAgentRequest,
+  updateAgentNodes,
+} from "./agent";
+import { AgentNode, GetAgentOptions } from "./types";
 
 describe("utils", () => {
-  describe("getPromptNode", () => {
-    it("should create a simple prompt node with no parameters", () => {
-      const options: GetPromptOptions = {
+  describe("getAgentNode", () => {
+    it("should create a simple agent node with no parameters", () => {
+      const options: GetAgentOptions = {
         defaultPrompt: "Hello, World!",
       };
 
-      const node = getPromptNode("greeting", options);
+      const node = getAgentNode("greeting", options);
 
       expect(node).toEqual({
         id: "greeting",
-        version: undefined,
+        majorVersion: undefined,
         name: undefined,
         params: {},
         prompt: "Hello, World!",
         children: [],
+        model: undefined,
+        temperature: undefined,
+        maxTokens: undefined,
+        topP: undefined,
+        frequencyPenalty: undefined,
+        presencePenalty: undefined,
+        stopSequences: undefined,
       });
     });
 
-    it("should create a prompt node with simple string parameters", () => {
-      const options: GetPromptOptions = {
+    it("should create an agent node with simple string parameters", () => {
+      const options: GetAgentOptions = {
         defaultPrompt: "Hello, {{userName}}!",
         params: {
           userName: "Alice",
         },
       };
 
-      const node = getPromptNode("greeting", options);
+      const node = getAgentNode("greeting", options);
 
       expect(node).toEqual({
         id: "greeting",
-        version: undefined,
+        majorVersion: undefined,
         name: undefined,
         params: {
           userName: "Alice",
         },
         prompt: "Hello, {{userName}}!",
         children: [],
+        model: undefined,
+        temperature: undefined,
+        maxTokens: undefined,
+        topP: undefined,
+        frequencyPenalty: undefined,
+        presencePenalty: undefined,
+        stopSequences: undefined,
       });
     });
 
-    it("should create a prompt node with version and name", () => {
-      const options: GetPromptOptions = {
-        version: "v1",
-        name: "greeting-prompt",
+    it("should create an agent node with majorVersion and name", () => {
+      const options: GetAgentOptions = {
+        majorVersion: 1,
+        name: "greeting-agent",
         defaultPrompt: "Hello!",
       };
 
-      const node = getPromptNode("greeting", options);
+      const node = getAgentNode("greeting", options);
 
-      expect(node.version).toBe("v1");
-      expect(node.name).toBe("greeting-prompt");
+      expect(node.majorVersion).toBe(1);
+      expect(node.name).toBe("greeting-agent");
     });
 
-    it("should create nested prompt nodes from nested options", () => {
-      const options: GetPromptOptions = {
+    it("should create an agent node with hyperparameters", () => {
+      const options: GetAgentOptions = {
+        defaultPrompt: "Hello!",
+        model: "gpt-4",
+        temperature: 0.7,
+        maxTokens: 1000,
+        topP: 0.9,
+        frequencyPenalty: 0.5,
+        presencePenalty: 0.3,
+        stopSequences: ["END", "STOP"],
+      };
+
+      const node = getAgentNode("greeting", options);
+
+      expect(node.model).toBe("gpt-4");
+      expect(node.temperature).toBe(0.7);
+      expect(node.maxTokens).toBe(1000);
+      expect(node.topP).toBe(0.9);
+      expect(node.frequencyPenalty).toBe(0.5);
+      expect(node.presencePenalty).toBe(0.3);
+      expect(node.stopSequences).toEqual(["END", "STOP"]);
+    });
+
+    it("should create nested agent nodes from nested options", () => {
+      const options: GetAgentOptions = {
         defaultPrompt: "Intro: {{introduction}}",
         params: {
           introduction: {
@@ -76,7 +113,7 @@ describe("utils", () => {
         },
       };
 
-      const node = getPromptNode("main", options);
+      const node = getAgentNode("main", options);
 
       expect(node.id).toBe("main");
       expect(node.children).toHaveLength(1);
@@ -84,8 +121,8 @@ describe("utils", () => {
       expect(node.children[0].params).toEqual({ userName: "Bob" });
     });
 
-    it("should handle multiple nested prompts", () => {
-      const options: GetPromptOptions = {
+    it("should handle multiple nested agents", () => {
+      const options: GetAgentOptions = {
         defaultPrompt: "{{header}} Content: {{body}} {{footer}}",
         params: {
           header: {
@@ -103,7 +140,7 @@ describe("utils", () => {
         },
       };
 
-      const node = getPromptNode("document", options);
+      const node = getAgentNode("document", options);
 
       expect(node.children).toHaveLength(3);
       expect(node.children.map((c) => c.id)).toEqual([
@@ -113,21 +150,21 @@ describe("utils", () => {
       ]);
     });
 
-    it("should throw an error for self-referencing prompts", () => {
-      const options: GetPromptOptions = {
-        defaultPrompt: "This is a prompt that references {{system-prompt}}",
+    it("should throw an error for self-referencing agents", () => {
+      const options: GetAgentOptions = {
+        defaultPrompt: "This is an agent that references {{system-agent}}",
         params: {
-          "system-prompt": {
+          "system-agent": {
             defaultPrompt: "This should cause an error",
           },
         },
       };
 
-      expect(() => getPromptNode("system-prompt", options)).toThrow();
+      expect(() => getAgentNode("system-agent", options)).toThrow();
     });
 
-    it("should throw an error for circular prompt references", () => {
-      const options: GetPromptOptions = {
+    it("should throw an error for circular agent references", () => {
+      const options: GetAgentOptions = {
         defaultPrompt: "A references {{b}}",
         params: {
           b: {
@@ -141,11 +178,11 @@ describe("utils", () => {
         },
       };
 
-      expect(() => getPromptNode("a", options)).toThrow();
+      expect(() => getAgentNode("a", options)).toThrow();
     });
 
-    it("should throw an error when prompt has placeholders without matching parameters", () => {
-      const options: GetPromptOptions = {
+    it("should throw an error when agent has placeholders without matching parameters", () => {
+      const options: GetAgentOptions = {
         defaultPrompt: "Hello {{name}}, your role is {{role}}",
         params: {
           name: "Alice",
@@ -153,14 +190,14 @@ describe("utils", () => {
         },
       };
 
-      const node = getPromptNode("greeting", options);
+      const node = getAgentNode("greeting", options);
 
       // Should throw when evaluating because 'role' placeholder has no value
-      expect(() => evaluatePrompt(node)).toThrow(/missing parameter.*role/i);
+      expect(() => evaluateAgent(node)).toThrow(/missing parameter.*role/i);
     });
 
     it("should throw an error listing all missing parameters", () => {
-      const options: GetPromptOptions = {
+      const options: GetAgentOptions = {
         defaultPrompt: "{{greeting}} {{name}}, you are {{role}} in {{location}}",
         params: {
           name: "Bob",
@@ -168,9 +205,9 @@ describe("utils", () => {
         },
       };
 
-      const node = getPromptNode("test", options);
+      const node = getAgentNode("test", options);
 
-      expect(() => evaluatePrompt(node)).toThrow(/missing parameter/i);
+      expect(() => evaluateAgent(node)).toThrow(/missing parameter/i);
     });
   });
 
@@ -233,21 +270,21 @@ describe("utils", () => {
     });
   });
 
-  describe("evaluatePrompt", () => {
-    it("should evaluate a simple prompt with params", () => {
-      const node: PromptNode = {
+  describe("evaluateAgent", () => {
+    it("should evaluate a simple agent with params", () => {
+      const node: AgentNode = {
         id: "greeting",
         params: { userName: "Alice" },
         prompt: "Hello, {{userName}}!",
         children: [],
       };
 
-      const result = evaluatePrompt(node);
+      const result = evaluateAgent(node);
       expect(result).toBe("Hello, Alice!");
     });
 
-    it("should evaluate nested prompts depth-first", () => {
-      const node: PromptNode = {
+    it("should evaluate nested agents depth-first", () => {
+      const node: AgentNode = {
         id: "main",
         params: {},
         prompt: "Intro: {{introduction}}",
@@ -261,12 +298,12 @@ describe("utils", () => {
         ],
       };
 
-      const result = evaluatePrompt(node);
+      const result = evaluateAgent(node);
       expect(result).toBe("Intro: Hello, Bob!");
     });
 
     it("should evaluate multiple levels of nesting", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "main",
         params: {},
         prompt: "Doc: {{section}}",
@@ -287,12 +324,12 @@ describe("utils", () => {
         ],
       };
 
-      const result = evaluatePrompt(node);
+      const result = evaluateAgent(node);
       expect(result).toBe("Doc: Section: Para: content");
     });
 
     it("should handle multiple children", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "document",
         params: {},
         prompt: "{{header}}\n{{body}}\n{{footer}}",
@@ -318,46 +355,46 @@ describe("utils", () => {
         ],
       };
 
-      const result = evaluatePrompt(node);
+      const result = evaluateAgent(node);
       expect(result).toBe("HEADER\nBody: text\nFOOTER");
     });
 
-    it("should handle prompt with no children or params", () => {
-      const node: PromptNode = {
+    it("should handle agent with no children or params", () => {
+      const node: AgentNode = {
         id: "simple",
         params: {},
         prompt: "Static text",
         children: [],
       };
 
-      const result = evaluatePrompt(node);
+      const result = evaluateAgent(node);
       expect(result).toBe("Static text");
     });
 
     it("should cache evaluated nodes to avoid recomputation", () => {
       // This tests that if a node is referenced multiple times, it's only evaluated once
-      const sharedChild: PromptNode = {
+      const sharedChild: AgentNode = {
         id: "shared",
         params: {},
         prompt: "Shared",
         children: [],
       };
 
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "main",
         params: {},
         prompt: "{{shared}}",
         children: [sharedChild],
       };
 
-      const result = evaluatePrompt(node);
+      const result = evaluateAgent(node);
       expect(result).toBe("Shared");
     });
   });
 
-  describe("traversePromptNode", () => {
+  describe("traverseAgentNode", () => {
     it("should visit single node", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "root",
         params: {},
         prompt: "test",
@@ -365,7 +402,7 @@ describe("utils", () => {
       };
 
       const visited: Array<{ id: string; parentId: string | null }> = [];
-      traversePromptNode(node, (n, parentId) => {
+      traverseAgentNode(node, (n, parentId) => {
         visited.push({ id: n.id, parentId });
       });
 
@@ -373,7 +410,7 @@ describe("utils", () => {
     });
 
     it("should visit nodes in depth-first order", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "root",
         params: {},
         prompt: "test",
@@ -401,7 +438,7 @@ describe("utils", () => {
       };
 
       const visited: string[] = [];
-      traversePromptNode(node, (n) => {
+      traverseAgentNode(node, (n) => {
         visited.push(n.id);
       });
 
@@ -409,7 +446,7 @@ describe("utils", () => {
     });
 
     it("should pass correct parent ID to callback", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "root",
         params: {},
         prompt: "test",
@@ -437,7 +474,7 @@ describe("utils", () => {
       };
 
       const relationships: Array<{ id: string; parentId: string | null }> = [];
-      traversePromptNode(node, (n, parentId) => {
+      traverseAgentNode(node, (n, parentId) => {
         relationships.push({ id: n.id, parentId });
       });
 
@@ -450,32 +487,39 @@ describe("utils", () => {
     });
   });
 
-  describe("formatPromptRequest", () => {
-    it("should format a simple prompt node", () => {
-      const node: PromptNode = {
+  describe("formatAgentRequest", () => {
+    it("should format a simple agent node", () => {
+      const node: AgentNode = {
         id: "greeting",
-        name: "greeting-prompt",
-        version: "v1",
+        name: "greeting-agent",
+        majorVersion: 1,
         params: { userName: "Alice" },
         prompt: "Hello, {{userName}}!",
         children: [],
       };
 
-      const request = formatPromptRequest(node);
+      const request = formatAgentRequest(node);
 
-      expect(request.prompts.rootId).toBe("greeting");
-      expect(request.prompts.map["greeting"]).toEqual({
+      expect(request.agents.rootId).toBe("greeting");
+      expect(request.agents.map["greeting"]).toEqual({
         id: "greeting",
-        name: "greeting-prompt",
-        version: "v1",
+        name: "greeting-agent",
+        majorVersion: 1,
         prompt: "Hello, {{userName}}!",
         paramKeys: ["userName"],
         childrenIds: [],
+        model: undefined,
+        temperature: undefined,
+        maxTokens: undefined,
+        topP: undefined,
+        frequencyPenalty: undefined,
+        presencePenalty: undefined,
+        stopSequences: undefined,
       });
     });
 
-    it("should format nested prompt nodes", () => {
-      const node: PromptNode = {
+    it("should format nested agent nodes", () => {
+      const node: AgentNode = {
         id: "main",
         params: {},
         prompt: "Intro: {{introduction}}",
@@ -489,29 +533,69 @@ describe("utils", () => {
         ],
       };
 
-      const request = formatPromptRequest(node);
+      const request = formatAgentRequest(node);
 
-      expect(request.prompts.rootId).toBe("main");
-      expect(request.prompts.map["main"]).toEqual({
+      expect(request.agents.rootId).toBe("main");
+      expect(request.agents.map["main"]).toEqual({
         id: "main",
         name: undefined,
-        version: undefined,
+        majorVersion: undefined,
         prompt: "Intro: {{introduction}}",
-        paramKeys: [],
+        paramKeys: ["introduction"],
         childrenIds: ["introduction"],
+        model: undefined,
+        temperature: undefined,
+        maxTokens: undefined,
+        topP: undefined,
+        frequencyPenalty: undefined,
+        presencePenalty: undefined,
+        stopSequences: undefined,
       });
-      expect(request.prompts.map["introduction"]).toEqual({
+      expect(request.agents.map["introduction"]).toEqual({
         id: "introduction",
         name: undefined,
-        version: undefined,
+        majorVersion: undefined,
         prompt: "Hello, {{userName}}!",
         paramKeys: ["userName"],
         childrenIds: [],
+        model: undefined,
+        temperature: undefined,
+        maxTokens: undefined,
+        topP: undefined,
+        frequencyPenalty: undefined,
+        presencePenalty: undefined,
+        stopSequences: undefined,
       });
     });
 
+    it("should format agent node with hyperparameters", () => {
+      const node: AgentNode = {
+        id: "greeting",
+        params: {},
+        prompt: "Hello!",
+        children: [],
+        model: "gpt-4",
+        temperature: 0.7,
+        maxTokens: 1000,
+        topP: 0.9,
+        frequencyPenalty: 0.5,
+        presencePenalty: 0.3,
+        stopSequences: ["END"],
+      };
+
+      const request = formatAgentRequest(node);
+
+      expect(request.agents.map["greeting"].model).toBe("gpt-4");
+      expect(request.agents.map["greeting"].temperature).toBe(0.7);
+      expect(request.agents.map["greeting"].maxTokens).toBe(1000);
+      expect(request.agents.map["greeting"].topP).toBe(0.9);
+      expect(request.agents.map["greeting"].frequencyPenalty).toBe(0.5);
+      expect(request.agents.map["greeting"].presencePenalty).toBe(0.3);
+      expect(request.agents.map["greeting"].stopSequences).toEqual(["END"]);
+    });
+
     it("should format deeply nested structure", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "doc",
         params: {},
         prompt: "{{section}}",
@@ -532,17 +616,17 @@ describe("utils", () => {
         ],
       };
 
-      const request = formatPromptRequest(node);
+      const request = formatAgentRequest(node);
 
-      expect(request.prompts.rootId).toBe("doc");
-      expect(Object.keys(request.prompts.map)).toHaveLength(3);
-      expect(request.prompts.map["doc"].childrenIds).toEqual(["section"]);
-      expect(request.prompts.map["section"].childrenIds).toEqual(["paragraph"]);
-      expect(request.prompts.map["paragraph"].paramKeys).toEqual(["text"]);
+      expect(request.agents.rootId).toBe("doc");
+      expect(Object.keys(request.agents.map)).toHaveLength(3);
+      expect(request.agents.map["doc"].childrenIds).toEqual(["section"]);
+      expect(request.agents.map["section"].childrenIds).toEqual(["paragraph"]);
+      expect(request.agents.map["paragraph"].paramKeys).toEqual(["text"]);
     });
 
     it("should handle multiple children", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "document",
         params: {},
         prompt: "{{header}} {{body}} {{footer}}",
@@ -568,27 +652,27 @@ describe("utils", () => {
         ],
       };
 
-      const request = formatPromptRequest(node);
+      const request = formatAgentRequest(node);
 
-      expect(request.prompts.map["document"].childrenIds).toEqual([
+      expect(request.agents.map["document"].childrenIds).toEqual([
         "header",
         "body",
         "footer",
       ]);
-      expect(Object.keys(request.prompts.map)).toHaveLength(4);
+      expect(Object.keys(request.agents.map)).toHaveLength(4);
     });
   });
 
-  describe("updatePromptNodes", () => {
+  describe("updateAgentNodes", () => {
     it("should update a single node", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "greeting",
         params: {},
         prompt: "Old prompt",
         children: [],
       };
 
-      const updated = updatePromptNodes(node, (n) => ({
+      const updated = updateAgentNodes(node, (n) => ({
         ...n,
         prompt: "New prompt",
       }));
@@ -598,7 +682,7 @@ describe("utils", () => {
     });
 
     it("should update all nodes in a nested structure", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "root",
         params: {},
         prompt: "root",
@@ -618,7 +702,7 @@ describe("utils", () => {
         ],
       };
 
-      const updated = updatePromptNodes(node, (n) => ({
+      const updated = updateAgentNodes(node, (n) => ({
         ...n,
         prompt: `updated-${n.id}`,
       }));
@@ -629,7 +713,7 @@ describe("utils", () => {
     });
 
     it("should update deeply nested nodes", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "level1",
         params: {},
         prompt: "level1",
@@ -650,7 +734,7 @@ describe("utils", () => {
         ],
       };
 
-      const updated = updatePromptNodes(node, (n) => ({
+      const updated = updateAgentNodes(node, (n) => ({
         ...n,
         prompt: `${n.prompt}-updated`,
       }));
@@ -661,10 +745,10 @@ describe("utils", () => {
     });
 
     it("should preserve node structure while updating", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "root",
         name: "root-name",
-        version: "v1",
+        majorVersion: 1,
         params: { key: "value" },
         prompt: "original",
         children: [
@@ -677,21 +761,21 @@ describe("utils", () => {
         ],
       };
 
-      const updated = updatePromptNodes(node, (n) => ({
+      const updated = updateAgentNodes(node, (n) => ({
         ...n,
         prompt: n.prompt.toUpperCase(),
       }));
 
       expect(updated.id).toBe("root");
       expect(updated.name).toBe("root-name");
-      expect(updated.version).toBe("v1");
+      expect(updated.majorVersion).toBe(1);
       expect(updated.params).toEqual({ key: "value" });
       expect(updated.prompt).toBe("ORIGINAL");
       expect(updated.children[0].prompt).toBe("CHILD-ORIGINAL");
     });
 
     it("should allow conditional updates", () => {
-      const node: PromptNode = {
+      const node: AgentNode = {
         id: "root",
         params: {},
         prompt: "root",
@@ -711,7 +795,7 @@ describe("utils", () => {
         ],
       };
 
-      const updated = updatePromptNodes(node, (n) => {
+      const updated = updateAgentNodes(node, (n) => {
         if (n.id === "update-me") {
           return { ...n, prompt: "new" };
         }

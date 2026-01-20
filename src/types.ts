@@ -1,16 +1,16 @@
-// types.ts - Add these types
+// types.ts - Hone SDK types
 export type HoneConfig = {
   apiKey: string;
   baseUrl?: string;
   timeout?: number;
 };
 
-export type ParamsValue = string | GetPromptOptions;
+export type ParamsValue = string | GetAgentOptions;
 export type Params = Record<string, ParamsValue>;
 
-export type HonePrompt = (
+export type HoneAgent = (
   id: string,
-  options: GetPromptOptions,
+  options: GetAgentOptions,
 ) => Promise<string>;
 
 export type HoneTrack = (
@@ -21,12 +21,12 @@ export type HoneTrack = (
 
 export type HoneClient = {
   /**
-   * Fetches and evaluates a prompt by its ID with the given options.
-   * @param id The unique identifier for the prompt.
-   * @param options Options for fetching and evaluating the prompt.
+   * Fetches and evaluates an agent by its ID with the given options.
+   * @param id The unique identifier for the agent.
+   * @param options Options for fetching and evaluating the agent.
    * @returns A Promise that resolves to the evaluated prompt string.
    */
-  prompt: HonePrompt;
+  agent: HoneAgent;
   /**
    * Adds messages to track a conversation under the given ID.
    * @param id The unique identifier for the conversation to track.
@@ -36,18 +36,39 @@ export type HoneClient = {
   track: HoneTrack;
 };
 
-export type GetPromptOptions = {
+/**
+ * Hyperparameters for LLM configuration.
+ */
+export type Hyperparameters = {
+  /** LLM model identifier (e.g., "gpt-4", "claude-3-opus") */
+  model?: string;
+  /** Sampling temperature (0.00 to 2.00) */
+  temperature?: number;
+  /** Maximum output tokens */
+  maxTokens?: number;
+  /** Nucleus sampling parameter (0.00 to 1.00) */
+  topP?: number;
+  /** Repetition penalty (-2.00 to 2.00) */
+  frequencyPenalty?: number;
+  /** Topic diversity penalty (-2.00 to 2.00) */
+  presencePenalty?: number;
+  /** Array of stop tokens */
+  stopSequences?: string[];
+};
+
+export type GetAgentOptions = Hyperparameters & {
   /**
-   * The version of the prompt to retrieve. If not specified, the latest version is used.
-   * @note `params` and `defaultPrompt` are not updated remotely without version changes.
+   * The major version of the agent. SDK controls this value.
+   * When majorVersion changes, minorVersion resets to 0.
+   * If not specified, defaults to 1.
    */
-  version?: string;
-  /** Optional name for the prompt for easier identification.
+  majorVersion?: number;
+  /** Optional name for the agent for easier identification.
    *  Will fallback to id if not provided.
    */
   name?: string;
   /**
-   * Parameters to substitute into the prompt. You can also nest prompt calls here.
+   * Parameters to substitute into the prompt. You can also nest agent calls here.
    */
   params?: Params;
   /**
@@ -56,9 +77,11 @@ export type GetPromptOptions = {
    *
    * @example
    * ```typescript
-   * prompt("greeting", {
+   * agent("greeting", {
    *   params: { userName: "Alice" },
    *   defaultPrompt: "Hello, {{userName}}! Welcome to our service.",
+   * })
+   * ```
    */
   defaultPrompt: string;
 };
@@ -74,38 +97,36 @@ export type TrackConversationOptions = {
 
 export type SimpleParams = Record<string, string>;
 
-export type PromptNode = {
+export type AgentNode = Hyperparameters & {
   id: string;
   name?: string;
-  version?: string;
+  majorVersion?: number;
   params: SimpleParams;
   prompt: string;
-  children: PromptNode[];
+  children: AgentNode[];
 };
 
 /**
- * The request payload sent to the /prompts endpoint.
- *
- * @template T The type of parameter keys in the PromptNode.
+ * The request payload sent to the /sync_agents endpoint.
  */
-export type PromptRequestItem = Omit<PromptNode, "children" | "params"> & {
+export type AgentRequestItem = Omit<AgentNode, "children" | "params"> & {
   paramKeys: string[];
   childrenIds: string[];
 };
 
-export type PromptRequest = {
-  prompts: {
+export type AgentRequest = {
+  agents: {
     rootId: string;
-    map: Record<string, PromptRequestItem>;
+    map: Record<string, AgentRequestItem>;
   };
 };
 
 /**
- * The response received from the /prompts endpoint.
- * @key The prompt ID
+ * The response received from the /sync_agents endpoint.
+ * @key The agent ID
  * @value The newest prompt string
  */
-export type PromptResponse = Record<string, { prompt: string }>;
+export type AgentResponse = Record<string, { prompt: string }>;
 
 export type TrackRequest = {
   id: string;
@@ -115,3 +136,25 @@ export type TrackRequest = {
 };
 
 export type TrackResponse = void;
+
+// ============================================================================
+// Backwards Compatibility Aliases (deprecated)
+// ============================================================================
+
+/** @deprecated Use GetAgentOptions instead */
+export type GetPromptOptions = GetAgentOptions;
+
+/** @deprecated Use AgentNode instead */
+export type PromptNode = AgentNode;
+
+/** @deprecated Use AgentRequestItem instead */
+export type PromptRequestItem = AgentRequestItem;
+
+/** @deprecated Use AgentRequest instead */
+export type PromptRequest = AgentRequest;
+
+/** @deprecated Use AgentResponse instead */
+export type PromptResponse = AgentResponse;
+
+/** @deprecated Use HoneAgent instead */
+export type HonePrompt = HoneAgent;
