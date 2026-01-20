@@ -73,9 +73,18 @@ describe("Hone Client", () => {
   });
 
   describe("agent", () => {
-    it("should fetch agent successfully and return evaluated result", async () => {
+    it("should fetch agent successfully and return evaluated result with hyperparameters", async () => {
       const mockResponse: AgentResponse = {
-        greeting: { prompt: "Hello, {{userName}}! Welcome." },
+        greeting: {
+          prompt: "Hello, {{userName}}! Welcome.",
+          model: "gpt-4",
+          temperature: 0.7,
+          maxTokens: 1000,
+          topP: 0.9,
+          frequencyPenalty: 0.1,
+          presencePenalty: 0.2,
+          stopSequences: ["END"],
+        },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -90,7 +99,14 @@ describe("Hone Client", () => {
         },
       });
 
-      expect(result).toBe("Hello, Alice! Welcome.");
+      expect(result.systemPrompt).toBe("Hello, Alice! Welcome.");
+      expect(result.model).toBe("gpt-4");
+      expect(result.temperature).toBe(0.7);
+      expect(result.maxTokens).toBe(1000);
+      expect(result.topP).toBe(0.9);
+      expect(result.frequencyPenalty).toBe(0.1);
+      expect(result.presencePenalty).toBe(0.2);
+      expect(result.stopSequences).toEqual(["END"]);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
         "https://honeagents.ai/api/sync_agents",
@@ -104,7 +120,7 @@ describe("Hone Client", () => {
       );
     });
 
-    it("should use fallback prompt when API call fails", async () => {
+    it("should use fallback prompt and options when API call fails", async () => {
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
       const consoleLogSpy = vi
@@ -113,12 +129,16 @@ describe("Hone Client", () => {
 
       const result = await client.agent("greeting", {
         defaultPrompt: "Hi, {{userName}}!",
+        model: "gpt-3.5-turbo",
+        temperature: 0.5,
         params: {
           userName: "Bob",
         },
       });
 
-      expect(result).toBe("Hi, Bob!");
+      expect(result.systemPrompt).toBe("Hi, Bob!");
+      expect(result.model).toBe("gpt-3.5-turbo");
+      expect(result.temperature).toBe(0.5);
       expect(consoleLogSpy).toHaveBeenCalledWith(
         "Error fetching agent, using fallback:",
         expect.any(Error),
@@ -129,8 +149,8 @@ describe("Hone Client", () => {
 
     it("should handle nested agents", async () => {
       const mockResponse: AgentResponse = {
-        main: { prompt: "Welcome: {{intro}}" },
-        intro: { prompt: "Hello, {{userName}}!" },
+        main: { prompt: "Welcome: {{intro}}", model: null, temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [] },
+        intro: { prompt: "Hello, {{userName}}!", model: null, temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [] },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -150,12 +170,12 @@ describe("Hone Client", () => {
         },
       });
 
-      expect(result).toBe("Welcome: Hello, Charlie!");
+      expect(result.systemPrompt).toBe("Welcome: Hello, Charlie!");
     });
 
     it("should handle agent with no parameters", async () => {
       const mockResponse: AgentResponse = {
-        static: { prompt: "This is a static prompt" },
+        static: { prompt: "This is a static prompt", model: "claude-3", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [] },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -167,7 +187,8 @@ describe("Hone Client", () => {
         defaultPrompt: "Fallback static",
       });
 
-      expect(result).toBe("This is a static prompt");
+      expect(result.systemPrompt).toBe("This is a static prompt");
+      expect(result.model).toBe("claude-3");
     });
 
     it("should use fallback when API returns error status", async () => {
@@ -186,7 +207,7 @@ describe("Hone Client", () => {
         defaultPrompt: "Fallback prompt",
       });
 
-      expect(result).toBe("Fallback prompt");
+      expect(result.systemPrompt).toBe("Fallback prompt");
 
       consoleLogSpy.mockRestore();
     });

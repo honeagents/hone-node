@@ -6,6 +6,7 @@ import {
   Message,
   AgentRequest,
   AgentResponse,
+  AgentResult,
   TrackConversationOptions,
   TrackRequest,
   TrackResponse,
@@ -77,7 +78,7 @@ export class Hone implements HoneClient {
     }
   }
 
-  async agent(id: string, options: GetAgentOptions): Promise<string> {
+  async agent(id: string, options: GetAgentOptions): Promise<AgentResult> {
     const node = getAgentNode(id, options);
     try {
       const formattedRequest = formatAgentRequest(node);
@@ -87,23 +88,55 @@ export class Hone implements HoneClient {
       >("/sync_agents", "POST", formattedRequest);
 
       const updatedAgentNode = updateAgentNodes(node, (agentNode) => {
+        const responseItem = newAgentMap[agentNode.id];
         return {
           ...agentNode,
-          prompt: newAgentMap[agentNode.id]?.prompt || agentNode.prompt,
+          prompt: responseItem?.prompt || agentNode.prompt,
+          // Update hyperparameters from API response (if present)
+          model: responseItem?.model ?? agentNode.model,
+          temperature: responseItem?.temperature ?? agentNode.temperature,
+          maxTokens: responseItem?.maxTokens ?? agentNode.maxTokens,
+          topP: responseItem?.topP ?? agentNode.topP,
+          frequencyPenalty: responseItem?.frequencyPenalty ?? agentNode.frequencyPenalty,
+          presencePenalty: responseItem?.presencePenalty ?? agentNode.presencePenalty,
+          stopSequences: responseItem?.stopSequences ?? agentNode.stopSequences,
         };
       });
+
+      // Get the root agent's hyperparameters from the response
+      const rootResponse = newAgentMap[id];
+
       // Params are inserted client-side for flexibility and security
-      return evaluateAgent(updatedAgentNode);
+      return {
+        systemPrompt: evaluateAgent(updatedAgentNode),
+        model: rootResponse?.model ?? options.model ?? null,
+        temperature: rootResponse?.temperature ?? options.temperature ?? null,
+        maxTokens: rootResponse?.maxTokens ?? options.maxTokens ?? null,
+        topP: rootResponse?.topP ?? options.topP ?? null,
+        frequencyPenalty: rootResponse?.frequencyPenalty ?? options.frequencyPenalty ?? null,
+        presencePenalty: rootResponse?.presencePenalty ?? options.presencePenalty ?? null,
+        stopSequences: rootResponse?.stopSequences ?? options.stopSequences ?? [],
+      };
     } catch (error) {
       console.log("Error fetching agent, using fallback:", error);
-      return evaluateAgent(node);
+      // Fallback: use local defaults
+      return {
+        systemPrompt: evaluateAgent(node),
+        model: options.model ?? null,
+        temperature: options.temperature ?? null,
+        maxTokens: options.maxTokens ?? null,
+        topP: options.topP ?? null,
+        frequencyPenalty: options.frequencyPenalty ?? null,
+        presencePenalty: options.presencePenalty ?? null,
+        stopSequences: options.stopSequences ?? [],
+      };
     }
   }
 
   /**
    * @deprecated Use agent() instead
    */
-  async prompt(id: string, options: GetAgentOptions): Promise<string> {
+  async prompt(id: string, options: GetAgentOptions): Promise<AgentResult> {
     return this.agent(id, options);
   }
 

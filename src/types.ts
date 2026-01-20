@@ -8,10 +8,33 @@ export type HoneConfig = {
 export type ParamsValue = string | GetAgentOptions;
 export type Params = Record<string, ParamsValue>;
 
+/**
+ * The result returned by hone.agent()
+ * Contains both the evaluated system prompt and hyperparameters.
+ */
+export type AgentResult = {
+  /** The fully evaluated system prompt with all parameters substituted */
+  systemPrompt: string;
+  /** LLM model identifier (e.g., "gpt-4", "claude-3-opus") */
+  model: string | null;
+  /** Sampling temperature (0.00 to 2.00) */
+  temperature: number | null;
+  /** Maximum output tokens */
+  maxTokens: number | null;
+  /** Nucleus sampling parameter (0.00 to 1.00) */
+  topP: number | null;
+  /** Repetition penalty (-2.00 to 2.00) */
+  frequencyPenalty: number | null;
+  /** Topic diversity penalty (-2.00 to 2.00) */
+  presencePenalty: number | null;
+  /** Array of stop tokens */
+  stopSequences: string[];
+};
+
 export type HoneAgent = (
   id: string,
   options: GetAgentOptions,
-) => Promise<string>;
+) => Promise<AgentResult>;
 
 export type HoneTrack = (
   id: string,
@@ -24,7 +47,7 @@ export type HoneClient = {
    * Fetches and evaluates an agent by its ID with the given options.
    * @param id The unique identifier for the agent.
    * @param options Options for fetching and evaluating the agent.
-   * @returns A Promise that resolves to the evaluated prompt string.
+   * @returns A Promise that resolves to an AgentResult containing systemPrompt and hyperparameters.
    */
   agent: HoneAgent;
   /**
@@ -122,11 +145,25 @@ export type AgentRequest = {
 };
 
 /**
+ * Single agent data from the /sync_agents response.
+ */
+export type AgentResponseItem = {
+  prompt: string;
+  model: string | null;
+  temperature: number | null;
+  maxTokens: number | null;
+  topP: number | null;
+  frequencyPenalty: number | null;
+  presencePenalty: number | null;
+  stopSequences: string[];
+};
+
+/**
  * The response received from the /sync_agents endpoint.
  * @key The agent ID
- * @value The newest prompt string
+ * @value The agent data including prompt and hyperparameters
  */
-export type AgentResponse = Record<string, { prompt: string }>;
+export type AgentResponse = Record<string, AgentResponseItem>;
 
 export type TrackRequest = {
   id: string;

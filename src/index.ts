@@ -4,9 +4,11 @@ export type {
   HoneAgent,
   HoneTrack,
   GetAgentOptions,
+  AgentResult,
   AgentNode,
   AgentRequest,
   AgentResponse,
+  AgentResponseItem,
   Hyperparameters,
   // Backwards compatibility
   HonePrompt,
