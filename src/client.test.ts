@@ -91,7 +91,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({ entities: mockResponse }),
       });
 
       const result = await client.agent("greeting", {
@@ -114,7 +114,7 @@ describe("Hone Client", () => {
       expect(result.stopSequences).toEqual(["END"]);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://honeagents.ai/api/sync_agents",
+        "https://honeagents.ai/api/sync_entities",
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
@@ -162,7 +162,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({ entities: mockResponse }),
       });
 
       const result = await client.agent("main", {
@@ -191,7 +191,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({ entities: mockResponse }),
       });
 
       const result = await client.agent("static", {
@@ -234,7 +234,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({ entities: mockResponse }),
       });
 
       await client.agent("greeting-v2", {
@@ -248,14 +248,14 @@ describe("Hone Client", () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
 
-      expect(body.agents.map["greeting-v2"].majorVersion).toBe(2);
-      expect(body.agents.map["greeting-v2"].name).toBe("greeting");
+      expect(body.entities.map["greeting-v2"].majorVersion).toBe(2);
+      expect(body.entities.map["greeting-v2"].name).toBe("greeting");
     });
 
     it("should send correct request format to API", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({}),
+        json: async () => ({ entities: {} }),
       });
 
       await client.agent("test", {
@@ -270,32 +270,23 @@ describe("Hone Client", () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
 
-      expect(body.agents).toHaveProperty("rootId", "test");
-      expect(body.agents).toHaveProperty("map");
-      expect(body.agents.map["test"]).toEqual({
-        id: "test",
-        type: "agent",
-        name: undefined,
-        majorVersion: undefined,
-        prompt: "Test {{param1}}",
-        paramKeys: ["param1"],
-        childrenIds: [],
-        model: "gpt-4",
-        provider: "openai",
-        temperature: undefined,
-        maxTokens: undefined,
-        topP: undefined,
-        frequencyPenalty: undefined,
-        presencePenalty: undefined,
-        stopSequences: undefined,
-        tools: undefined,
-      });
+      expect(body.entities).toHaveProperty("rootId", "test");
+      expect(body.entities).toHaveProperty("map");
+      // Check key fields - the format omits undefined values and includes childrenTypes
+      const testEntity = body.entities.map["test"];
+      expect(testEntity.id).toBe("test");
+      expect(testEntity.type).toBe("agent");
+      expect(testEntity.prompt).toBe("Test {{param1}}");
+      expect(testEntity.paramKeys).toEqual(["param1"]);
+      expect(testEntity.childrenIds).toEqual([]);
+      expect(testEntity.model).toBe("gpt-4");
+      expect(testEntity.provider).toBe("openai");
     });
 
     it("should send hyperparameters in request", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({}),
+        json: async () => ({ entities: {} }),
       });
 
       await client.agent("test", {
@@ -313,14 +304,14 @@ describe("Hone Client", () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
 
-      expect(body.agents.map["test"].model).toBe("gpt-4");
-      expect(body.agents.map["test"].provider).toBe("openai");
-      expect(body.agents.map["test"].temperature).toBe(0.7);
-      expect(body.agents.map["test"].maxTokens).toBe(1000);
-      expect(body.agents.map["test"].topP).toBe(0.9);
-      expect(body.agents.map["test"].frequencyPenalty).toBe(0.5);
-      expect(body.agents.map["test"].presencePenalty).toBe(0.3);
-      expect(body.agents.map["test"].stopSequences).toEqual(["END"]);
+      expect(body.entities.map["test"].model).toBe("gpt-4");
+      expect(body.entities.map["test"].provider).toBe("openai");
+      expect(body.entities.map["test"].temperature).toBe(0.7);
+      expect(body.entities.map["test"].maxTokens).toBe(1000);
+      expect(body.entities.map["test"].topP).toBe(0.9);
+      expect(body.entities.map["test"].frequencyPenalty).toBe(0.5);
+      expect(body.entities.map["test"].presencePenalty).toBe(0.3);
+      expect(body.entities.map["test"].stopSequences).toEqual(["END"]);
     });
 
     it("should return null for missing hyperparameters from API", async () => {
@@ -342,7 +333,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({ entities: mockResponse }),
       });
 
       const result = await client.agent("test", {
@@ -381,7 +372,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({ entities: mockResponse }),
       });
 
       // SDK provides different defaults
@@ -427,7 +418,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({ entities: mockResponse }),
       });
 
       // SDK provides defaults
@@ -469,7 +460,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => mockResponse,
+        json: async () => ({ entities: mockResponse }),
       });
 
       // model and provider are required in SDK
