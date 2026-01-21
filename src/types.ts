@@ -1,5 +1,7 @@
 // types.ts - Hone SDK types
 
+import type { AIProviderValue } from "./providers.js";
+
 export type HoneConfig = {
   apiKey: string;
   baseUrl?: string;
@@ -13,13 +15,14 @@ export type HoneConfig = {
 /**
  * Supported entity types in the Hone system.
  */
-export type EntityType = "agent" | "tool";
+export type EntityType = "agent" | "tool" | "prompt";
 
 // =============================================================================
 // Params Types
 // =============================================================================
 
-export type ParamsValue = string | GetAgentOptions | GetToolOptions;
+// Use explicit generic to break circular reference
+export type ParamsValue = string | GetAgentOptions<Record<string, unknown>> | GetToolOptions | GetTextPromptOptions;
 export type Params = Record<string, ParamsValue>;
 export type SimpleParams = Record<string, string>;
 
@@ -34,8 +37,11 @@ export type SimpleParams = Record<string, string>;
 export type Hyperparameters = {
   /** LLM model identifier (e.g., "gpt-4", "claude-3-opus") - REQUIRED for agents */
   model?: string;
-  /** LLM provider (e.g., "openai", "anthropic") - REQUIRED for agents */
-  provider?: string;
+  /**
+   * LLM provider identifier. Use AIProvider enum for type safety.
+   * @example AIProvider.OpenAI, AIProvider.Anthropic, "openai", "anthropic"
+   */
+  provider?: AIProviderValue | (string & {});
   /** Sampling temperature (0.00 to 2.00) */
   temperature?: number;
   /** Maximum output tokens */
@@ -64,8 +70,10 @@ export type RequiredAgentHyperparameters = Required<
 /**
  * Options for fetching an agent.
  * Model and provider are REQUIRED.
+ *
+ * @typeParam TExtra - Type for custom extra data that will be stored and returned
  */
-export type GetAgentOptions = RequiredAgentHyperparameters & {
+export type GetAgentOptions<TExtra extends Record<string, unknown> = Record<string, unknown>> = RequiredAgentHyperparameters & {
   /**
    * The major version of the agent. SDK controls this value.
    * When majorVersion changes, minorVersion resets to 0.
@@ -96,13 +104,28 @@ export type GetAgentOptions = RequiredAgentHyperparameters & {
    * ```
    */
   defaultPrompt: string;
+  /**
+   * Custom extra data to store with the agent.
+   * This data is stored in the database and returned in the AgentResult.
+   *
+   * @example
+   * ```typescript
+   * agent<{ customField: string }>("my-agent", {
+   *   model: "gpt-4",
+   *   provider: "openai",
+   *   defaultPrompt: "...",
+   *   extra: { customField: "my-value" },
+   * })
+   * ```
+   */
+  extra?: TExtra;
 };
 
 /**
- * The result returned by hone.agent()
+ * Base result returned by hone.agent() without extra data.
  * Contains both the evaluated system prompt and hyperparameters.
  */
-export type AgentResult = {
+export type BaseAgentResult = {
   /** The fully evaluated system prompt with all parameters substituted */
   systemPrompt: string;
   /** LLM model identifier (e.g., "gpt-4", "claude-3-opus") */
@@ -125,10 +148,19 @@ export type AgentResult = {
   tools: string[];
 };
 
-export type HoneAgent = (
+/**
+ * The result returned by hone.agent()
+ * Contains the evaluated system prompt, hyperparameters, and any extra data.
+ *
+ * @typeParam TExtra - Type for custom extra data that was stored with the agent
+ */
+export type AgentResult<TExtra extends Record<string, unknown> = Record<string, unknown>> =
+  BaseAgentResult & TExtra;
+
+export type HoneAgent = <TExtra extends Record<string, unknown> = Record<string, unknown>>(
   id: string,
-  options: GetAgentOptions
-) => Promise<AgentResult>;
+  options: GetAgentOptions<TExtra>
+) => Promise<AgentResult<TExtra>>;
 
 // =============================================================================
 // Tool Types
@@ -184,6 +216,59 @@ export type HoneTool = (
 ) => Promise<ToolResult>;
 
 // =============================================================================
+// Text Prompt Types
+// =============================================================================
+
+/**
+ * Options for fetching a text prompt.
+ * Text prompts are simple versioned text templates with no hyperparameters.
+ * They can be nested inside agents, tools, or other prompts.
+ */
+export type GetTextPromptOptions = {
+  /**
+   * The major version of the prompt. SDK controls this value.
+   * When majorVersion changes, minorVersion resets to 0.
+   * If not specified, defaults to 1.
+   */
+  majorVersion?: number;
+  /**
+   * Optional name for the prompt for easier identification.
+   * Will fallback to id if not provided.
+   */
+  name?: string;
+  /**
+   * Parameters to substitute into the prompt. You can also nest other prompts here.
+   */
+  params?: Params;
+  /**
+   * The default text to use if none is found in the database.
+   * The use of variables should be in the form `{{variableName}}`.
+   *
+   * @example
+   * ```typescript
+   * prompt("tone-guidelines", {
+   *   defaultPrompt: "Always be friendly and professional.",
+   * })
+   * ```
+   */
+  defaultPrompt: string;
+};
+
+/**
+ * The result returned by hone.prompt()
+ * Contains the evaluated text with parameters substituted.
+ */
+export type TextPromptResult = {
+  /** The fully evaluated text with all parameters substituted */
+  text: string;
+};
+
+export type HoneTextPrompt = (
+  id: string,
+  options: GetTextPromptOptions
+) => Promise<TextPromptResult>;
+
+// =============================================================================
 // Tracking Types
 // =============================================================================
 
@@ -231,6 +316,13 @@ export type HoneClient = {
    */
   tool: HoneTool;
   /**
+   * Fetches and evaluates a text prompt by its ID with the given options.
+   * @param id The unique identifier for the prompt.
+   * @param options Options for fetching and evaluating the prompt.
+   * @returns A Promise that resolves to a TextPromptResult containing the evaluated text.
+   */
+  prompt: HoneTextPrompt;
+  /**
    * Adds messages to track a conversation under the given ID.
    * @param id The unique identifier for the conversation to track.
    * @param messages An array of Message objects representing the conversation.
@@ -265,6 +357,11 @@ export type AgentNode = EntityNode & { type: "agent" };
  * Tool node is an EntityNode with type="tool"
  */
 export type ToolNode = EntityNode & { type: "tool" };
+
+/**
+ * Text prompt node is an EntityNode with type="prompt"
+ */
+export type TextPromptNode = EntityNode & { type: "prompt" };
 
 // =============================================================================
 // API Request/Response Types
@@ -306,6 +403,8 @@ export type EntityResponseItem = {
   presencePenalty: number | null;
   stopSequences: string[];
   tools: string[];
+  // Custom extra data (for agents)
+  extra?: Record<string, unknown>;
 };
 
 /**

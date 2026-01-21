@@ -2,13 +2,13 @@
 import {
   GetAgentOptions,
   GetToolOptions,
+  GetTextPromptOptions,
   HoneClient,
   HoneConfig,
   Message,
-  AgentRequest,
-  AgentResponse,
   AgentResult,
   ToolResult,
+  TextPromptResult,
   EntityRequest,
   EntityResponse,
   TrackConversationOptions,
@@ -18,10 +18,10 @@ import {
 import {
   evaluateAgent,
   evaluateEntity,
-  formatAgentRequest,
   formatEntityRequest,
   getAgentNode,
   getToolNode,
+  getTextPromptNode,
   updateAgentNodes,
   updateEntityNodes,
 } from "./agent";
@@ -86,17 +86,30 @@ export class Hone implements HoneClient {
     }
   }
 
-  async agent(id: string, options: GetAgentOptions): Promise<AgentResult> {
+  async agent<TExtra extends Record<string, unknown> = Record<string, unknown>>(
+    id: string,
+    options: GetAgentOptions<TExtra>
+  ): Promise<AgentResult<TExtra>> {
     const node = getAgentNode(id, options);
     try {
-      const formattedRequest = formatAgentRequest(node);
-      const newAgentMap = await this.makeRequest<
-        AgentRequest,
-        AgentResponse
-      >("/sync_agents", "POST", formattedRequest);
+      const formattedRequest = formatEntityRequest(node);
+      // Include extra data in the request
+      if (options.extra) {
+        const rootEntity = formattedRequest.entities.map[id];
+        if (rootEntity) {
+          (rootEntity as Record<string, unknown>).extra = options.extra;
+        }
+      }
+
+      const response = await this.makeRequest<
+        EntityRequest,
+        { entities: EntityResponse }
+      >("/sync_entities", "POST", formattedRequest);
+
+      const entityMap = response.entities;
 
       const updatedAgentNode = updateAgentNodes(node, (agentNode) => {
-        const responseItem = newAgentMap[agentNode.id];
+        const responseItem = entityMap[agentNode.id];
         return {
           ...agentNode,
           prompt: responseItem?.prompt || agentNode.prompt,
@@ -111,8 +124,9 @@ export class Hone implements HoneClient {
         };
       });
 
-      // Get the root agent's hyperparameters from the response
-      const rootResponse = newAgentMap[id];
+      // Get the root agent's hyperparameters and extra from the response
+      const rootResponse = entityMap[id];
+      const extraFromResponse = (rootResponse?.extra ?? options.extra ?? {}) as TExtra;
 
       // Params are inserted client-side for flexibility and security
       return {
@@ -128,10 +142,12 @@ export class Hone implements HoneClient {
           rootResponse?.presencePenalty ?? options.presencePenalty ?? null,
         stopSequences: rootResponse?.stopSequences ?? options.stopSequences ?? [],
         tools: rootResponse?.tools ?? options.tools ?? [],
-      };
+        ...extraFromResponse,
+      } as AgentResult<TExtra>;
     } catch (error) {
       console.log("Error fetching agent, using fallback:", error);
       // Fallback: use local defaults
+      const extraData = (options.extra ?? {}) as TExtra;
       return {
         systemPrompt: evaluateAgent(node),
         model: options.model,
@@ -143,7 +159,8 @@ export class Hone implements HoneClient {
         presencePenalty: options.presencePenalty ?? null,
         stopSequences: options.stopSequences ?? [],
         tools: options.tools ?? [],
-      };
+        ...extraData,
+      } as AgentResult<TExtra>;
     }
   }
 
@@ -152,13 +169,15 @@ export class Hone implements HoneClient {
     const node = getToolNode(id, options);
     try {
       const formattedRequest = formatEntityRequest(node);
-      const entityResponseMap = await this.makeRequest<
+      const response = await this.makeRequest<
         EntityRequest,
-        EntityResponse
+        { entities: EntityResponse }
       >("/sync_entities", "POST", formattedRequest);
 
+      const entityMap = response.entities;
+
       const updatedToolNode = updateEntityNodes(node, (entityNode) => {
-        const responseItem = entityResponseMap[entityNode.id];
+        const responseItem = entityMap[entityNode.id];
         return {
           ...entityNode,
           prompt: responseItem?.prompt || entityNode.prompt,
@@ -174,6 +193,38 @@ export class Hone implements HoneClient {
       // Fallback: use local defaults
       return {
         prompt: evaluateEntity(node),
+      };
+    }
+  }
+
+  async prompt(id: string, options: GetTextPromptOptions): Promise<TextPromptResult> {
+    const node = getTextPromptNode(id, options);
+    try {
+      const formattedRequest = formatEntityRequest(node);
+      const response = await this.makeRequest<
+        EntityRequest,
+        { entities: EntityResponse }
+      >("/sync_entities", "POST", formattedRequest);
+
+      const entityMap = response.entities;
+
+      const updatedPromptNode = updateEntityNodes(node, (entityNode) => {
+        const responseItem = entityMap[entityNode.id];
+        return {
+          ...entityNode,
+          prompt: responseItem?.prompt || entityNode.prompt,
+        };
+      });
+
+      // Params are inserted client-side for flexibility and security
+      return {
+        text: evaluateEntity(updatedPromptNode),
+      };
+    } catch (error) {
+      console.log("Error fetching prompt, using fallback:", error);
+      // Fallback: use local defaults
+      return {
+        text: evaluateEntity(node),
       };
     }
   }

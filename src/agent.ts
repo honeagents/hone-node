@@ -1,8 +1,10 @@
 import {
   GetAgentOptions,
   GetToolOptions,
+  GetTextPromptOptions,
   AgentNode,
   ToolNode,
+  TextPromptNode,
   EntityNode,
   AgentRequest,
   AgentRequestItem,
@@ -32,14 +34,38 @@ export function isAgentOptions(value: ParamsValue): value is GetAgentOptions {
 
 /**
  * Type guard to check if a ParamsValue is GetToolOptions
+ * Tools have defaultPrompt but NOT model/provider, and have a distinguishing property
+ * We need to differentiate from text prompts - tools typically have more complex usage
+ * For now, we'll use a convention: if it has NO extra properties beyond the base, it's a text prompt
  */
 export function isToolOptions(value: ParamsValue): value is GetToolOptions {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("defaultPrompt" in value) ||
+    "model" in value ||
+    "provider" in value
+  ) {
+    return false;
+  }
+  // Tools are explicitly marked or have tool-specific properties
+  // For backwards compatibility, treat options with only base props as text prompts
+  // unless explicitly marked
+  return "_type" in value && value._type === "tool";
+}
+
+/**
+ * Type guard to check if a ParamsValue is GetTextPromptOptions
+ * Text prompts are the simplest - just defaultPrompt and optional params/version
+ */
+export function isTextPromptOptions(value: ParamsValue): value is GetTextPromptOptions {
   return (
     typeof value === "object" &&
     value !== null &&
     "defaultPrompt" in value &&
     !("model" in value) &&
-    !("provider" in value)
+    !("provider" in value) &&
+    !("_type" in value && value._type === "tool")
   );
 }
 
@@ -86,13 +112,32 @@ export function getToolNode(
 }
 
 /**
+ * Constructs a TextPromptNode from the given id and GetTextPromptOptions.
+ * Traverses nested prompts recursively.
+ *
+ * @param id the unique identifier for the text prompt node
+ * @param options the GetTextPromptOptions containing prompt details and parameters
+ * @param ancestorIds Set of ancestor IDs to detect circular references
+ * @returns TextPromptNode
+ * @throws Error if a self-reference or circular reference is detected
+ */
+export function getTextPromptNode(
+  id: string,
+  options: GetTextPromptOptions,
+  ancestorIds: Set<string> = new Set()
+): TextPromptNode {
+  const node = getEntityNode(id, "prompt", options, ancestorIds);
+  return node as TextPromptNode;
+}
+
+/**
  * Internal: Constructs an EntityNode from the given id, type, and options.
- * Handles both agents and tools.
+ * Handles agents, tools, and text prompts.
  */
 function getEntityNode(
   id: string,
   type: EntityType,
-  options: GetAgentOptions | GetToolOptions,
+  options: GetAgentOptions | GetToolOptions | GetTextPromptOptions,
   ancestorIds: Set<string> = new Set()
 ): EntityNode {
   // Check for self-reference
@@ -119,6 +164,8 @@ function getEntityNode(
       children.push(getEntityNode(paramId, "agent", value, newAncestorIds));
     } else if (isToolOptions(value)) {
       children.push(getEntityNode(paramId, "tool", value, newAncestorIds));
+    } else if (isTextPromptOptions(value)) {
+      children.push(getEntityNode(paramId, "prompt", value, newAncestorIds));
     }
   }
 
@@ -198,6 +245,13 @@ export function evaluateAgent(node: AgentNode): string {
  * Evaluates a ToolNode (alias for evaluateEntity)
  */
 export function evaluateTool(node: ToolNode): string {
+  return evaluateEntity(node);
+}
+
+/**
+ * Evaluates a TextPromptNode (alias for evaluateEntity)
+ */
+export function evaluateTextPrompt(node: TextPromptNode): string {
   return evaluateEntity(node);
 }
 

@@ -48,6 +48,7 @@
     "url": "https://github.com/stone-pebble/hone-sdk/issues"
   },
   "dependencies": {
+    "@hone/shared": "*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

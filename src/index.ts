@@ -1,4 +1,11 @@
 export { Hone, createHoneClient } from "./client";
+export {
+  AIProvider,
+  isValidProvider,
+  getProviderDisplayName,
+  AI_PROVIDER_VALUES,
+} from "./providers";
+export type { AIProviderValue } from "./providers";
 export type {
   HoneClient,
   HoneAgent,
