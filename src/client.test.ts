@@ -78,12 +78,14 @@ describe("Hone Client", () => {
         greeting: {
           prompt: "Hello, {{userName}}! Welcome.",
           model: "gpt-4",
+          provider: "openai",
           temperature: 0.7,
           maxTokens: 1000,
           topP: 0.9,
           frequencyPenalty: 0.1,
           presencePenalty: 0.2,
           stopSequences: ["END"],
+          tools: [],
         },
       };
 
@@ -93,6 +95,8 @@ describe("Hone Client", () => {
       });
 
       const result = await client.agent("greeting", {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Hi, {{userName}}!",
         params: {
           userName: "Alice",
@@ -101,6 +105,7 @@ describe("Hone Client", () => {
 
       expect(result.systemPrompt).toBe("Hello, Alice! Welcome.");
       expect(result.model).toBe("gpt-4");
+      expect(result.provider).toBe("openai");
       expect(result.temperature).toBe(0.7);
       expect(result.maxTokens).toBe(1000);
       expect(result.topP).toBe(0.9);
@@ -128,8 +133,9 @@ describe("Hone Client", () => {
         .mockImplementation(() => {});
 
       const result = await client.agent("greeting", {
-        defaultPrompt: "Hi, {{userName}}!",
         model: "gpt-3.5-turbo",
+        provider: "openai",
+        defaultPrompt: "Hi, {{userName}}!",
         temperature: 0.5,
         params: {
           userName: "Bob",
@@ -138,6 +144,7 @@ describe("Hone Client", () => {
 
       expect(result.systemPrompt).toBe("Hi, Bob!");
       expect(result.model).toBe("gpt-3.5-turbo");
+      expect(result.provider).toBe("openai");
       expect(result.temperature).toBe(0.5);
       expect(consoleLogSpy).toHaveBeenCalledWith(
         "Error fetching agent, using fallback:",
@@ -149,8 +156,8 @@ describe("Hone Client", () => {
 
     it("should handle nested agents", async () => {
       const mockResponse: AgentResponse = {
-        main: { prompt: "Welcome: {{intro}}", model: null, temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [] },
-        intro: { prompt: "Hello, {{userName}}!", model: null, temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [] },
+        main: { prompt: "Welcome: {{intro}}", model: "gpt-4", provider: "openai", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [], tools: [] },
+        intro: { prompt: "Hello, {{userName}}!", model: "gpt-4", provider: "openai", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [], tools: [] },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -159,9 +166,13 @@ describe("Hone Client", () => {
       });
 
       const result = await client.agent("main", {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Fallback: {{intro}}",
         params: {
           intro: {
+            model: "gpt-4",
+            provider: "openai",
             defaultPrompt: "Hi, {{userName}}!",
             params: {
               userName: "Charlie",
@@ -175,7 +186,7 @@ describe("Hone Client", () => {
 
     it("should handle agent with no parameters", async () => {
       const mockResponse: AgentResponse = {
-        static: { prompt: "This is a static prompt", model: "claude-3", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [] },
+        static: { prompt: "This is a static prompt", model: "claude-3", provider: "anthropic", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [], tools: [] },
       };
 
       mockFetch.mockResolvedValueOnce({
@@ -184,6 +195,8 @@ describe("Hone Client", () => {
       });
 
       const result = await client.agent("static", {
+        model: "claude-3",
+        provider: "anthropic",
         defaultPrompt: "Fallback static",
       });
 
@@ -204,6 +217,8 @@ describe("Hone Client", () => {
         .mockImplementation(() => {});
 
       const result = await client.agent("missing", {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Fallback prompt",
       });
 
@@ -223,6 +238,8 @@ describe("Hone Client", () => {
       });
 
       await client.agent("greeting-v2", {
+        model: "gpt-4",
+        provider: "openai",
         majorVersion: 2,
         name: "greeting",
         defaultPrompt: "Hello v1!",
@@ -242,6 +259,8 @@ describe("Hone Client", () => {
       });
 
       await client.agent("test", {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Test {{param1}}",
         params: {
           param1: "value1",
@@ -255,18 +274,21 @@ describe("Hone Client", () => {
       expect(body.agents).toHaveProperty("map");
       expect(body.agents.map["test"]).toEqual({
         id: "test",
+        type: "agent",
         name: undefined,
         majorVersion: undefined,
         prompt: "Test {{param1}}",
         paramKeys: ["param1"],
         childrenIds: [],
-        model: undefined,
+        model: "gpt-4",
+        provider: "openai",
         temperature: undefined,
         maxTokens: undefined,
         topP: undefined,
         frequencyPenalty: undefined,
         presencePenalty: undefined,
         stopSequences: undefined,
+        tools: undefined,
       });
     });
 
@@ -277,8 +299,9 @@ describe("Hone Client", () => {
       });
 
       await client.agent("test", {
-        defaultPrompt: "Test prompt",
         model: "gpt-4",
+        provider: "openai",
+        defaultPrompt: "Test prompt",
         temperature: 0.7,
         maxTokens: 1000,
         topP: 0.9,
@@ -291,6 +314,7 @@ describe("Hone Client", () => {
       const body = JSON.parse(callArgs[1].body);
 
       expect(body.agents.map["test"].model).toBe("gpt-4");
+      expect(body.agents.map["test"].provider).toBe("openai");
       expect(body.agents.map["test"].temperature).toBe(0.7);
       expect(body.agents.map["test"].maxTokens).toBe(1000);
       expect(body.agents.map["test"].topP).toBe(0.9);
@@ -305,12 +329,14 @@ describe("Hone Client", () => {
         test: {
           prompt: "Hello",
           model: "gpt-4",
+          provider: "openai",
           temperature: 0.5,
           maxTokens: null,
           topP: null,
           frequencyPenalty: null,
           presencePenalty: null,
           stopSequences: [],
+          tools: [],
         },
       };
 
@@ -320,11 +346,14 @@ describe("Hone Client", () => {
       });
 
       const result = await client.agent("test", {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Hello",
       });
 
       expect(result.systemPrompt).toBe("Hello");
       expect(result.model).toBe("gpt-4");
+      expect(result.provider).toBe("openai");
       expect(result.temperature).toBe(0.5);
       expect(result.maxTokens).toBeNull();
       expect(result.topP).toBeNull();
@@ -339,12 +368,14 @@ describe("Hone Client", () => {
         test: {
           prompt: "Hello",
           model: "claude-3-opus",
+          provider: "anthropic",
           temperature: 0.9,
           maxTokens: 2000,
           topP: 0.95,
           frequencyPenalty: 0.2,
           presencePenalty: 0.3,
           stopSequences: ["STOP"],
+          tools: [],
         },
       };
 
@@ -355,8 +386,9 @@ describe("Hone Client", () => {
 
       // SDK provides different defaults
       const result = await client.agent("test", {
-        defaultPrompt: "Hello",
         model: "gpt-4",
+        provider: "openai",
+        defaultPrompt: "Hello",
         temperature: 0.5,
         maxTokens: 1000,
         topP: 0.8,
@@ -367,6 +399,7 @@ describe("Hone Client", () => {
 
       // API values should win
       expect(result.model).toBe("claude-3-opus");
+      expect(result.provider).toBe("anthropic");
       expect(result.temperature).toBe(0.9);
       expect(result.maxTokens).toBe(2000);
       expect(result.topP).toBe(0.95);
@@ -376,17 +409,19 @@ describe("Hone Client", () => {
     });
 
     it("should use SDK defaults when API returns null hyperparameters", async () => {
-      // API explicitly returns null for hyperparameters
+      // API explicitly returns null for hyperparameters (except model/provider which come from SDK)
       const mockResponse: AgentResponse = {
         test: {
           prompt: "Hello",
           model: null,
+          provider: null,
           temperature: null,
           maxTokens: null,
           topP: null,
           frequencyPenalty: null,
           presencePenalty: null,
           stopSequences: [],
+          tools: [],
         },
       };
 
@@ -397,14 +432,16 @@ describe("Hone Client", () => {
 
       // SDK provides defaults
       const result = await client.agent("test", {
-        defaultPrompt: "Hello",
         model: "gpt-4",
+        provider: "openai",
+        defaultPrompt: "Hello",
         temperature: 0.7,
         maxTokens: 1000,
       });
 
       // SDK defaults should be used since API returned null
       expect(result.model).toBe("gpt-4");
+      expect(result.provider).toBe("openai");
       expect(result.temperature).toBe(0.7);
       expect(result.maxTokens).toBe(1000);
       // These weren't specified in SDK either, so remain null
@@ -414,17 +451,19 @@ describe("Hone Client", () => {
       expect(result.stopSequences).toEqual([]);
     });
 
-    it("should return all null hyperparameters when not specified anywhere", async () => {
+    it("should return SDK model/provider even when API returns null", async () => {
       const mockResponse: AgentResponse = {
         test: {
           prompt: "Hello",
           model: null,
+          provider: null,
           temperature: null,
           maxTokens: null,
           topP: null,
           frequencyPenalty: null,
           presencePenalty: null,
           stopSequences: [],
+          tools: [],
         },
       };
 
@@ -433,13 +472,17 @@ describe("Hone Client", () => {
         json: async () => mockResponse,
       });
 
-      // No hyperparameters specified in SDK either
+      // model and provider are required in SDK
       const result = await client.agent("test", {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Hello",
       });
 
       expect(result.systemPrompt).toBe("Hello");
-      expect(result.model).toBeNull();
+      // model and provider come from SDK since API returned null
+      expect(result.model).toBe("gpt-4");
+      expect(result.provider).toBe("openai");
       expect(result.temperature).toBeNull();
       expect(result.maxTokens).toBeNull();
       expect(result.topP).toBeNull();
@@ -456,8 +499,9 @@ describe("Hone Client", () => {
         .mockImplementation(() => {});
 
       const result = await client.agent("test", {
-        defaultPrompt: "Hello {{name}}",
         model: "gpt-4",
+        provider: "openai",
+        defaultPrompt: "Hello {{name}}",
         temperature: 0.7,
         maxTokens: 1000,
         topP: 0.9,
@@ -469,6 +513,7 @@ describe("Hone Client", () => {
 
       expect(result.systemPrompt).toBe("Hello World");
       expect(result.model).toBe("gpt-4");
+      expect(result.provider).toBe("openai");
       expect(result.temperature).toBe(0.7);
       expect(result.maxTokens).toBe(1000);
       expect(result.topP).toBe(0.9);

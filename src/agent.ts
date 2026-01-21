@@ -1,80 +1,169 @@
 import {
   GetAgentOptions,
+  GetToolOptions,
   AgentNode,
+  ToolNode,
+  EntityNode,
   AgentRequest,
   AgentRequestItem,
+  EntityRequest,
+  EntityRequestItem,
   SimpleParams,
+  EntityType,
+  ParamsValue,
 } from "./types";
+
+// =============================================================================
+// Type Guards
+// =============================================================================
+
+/**
+ * Type guard to check if a ParamsValue is GetAgentOptions
+ */
+export function isAgentOptions(value: ParamsValue): value is GetAgentOptions {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "defaultPrompt" in value &&
+    "model" in value &&
+    "provider" in value
+  );
+}
+
+/**
+ * Type guard to check if a ParamsValue is GetToolOptions
+ */
+export function isToolOptions(value: ParamsValue): value is GetToolOptions {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "defaultPrompt" in value &&
+    !("model" in value) &&
+    !("provider" in value)
+  );
+}
+
+// =============================================================================
+// Node Construction
+// =============================================================================
 
 /**
  * Constructs an AgentNode from the given id and GetAgentOptions.
- * Traverses nested agents recursively.
+ * Traverses nested agents/tools recursively.
  *
  * @param id the unique identifier for the agent node
  * @param options the GetAgentOptions containing agent details and parameters
  * @param ancestorIds Set of ancestor IDs to detect circular references
- * @returns
+ * @returns AgentNode
  * @throws Error if a self-reference or circular reference is detected
  */
 export function getAgentNode(
   id: string,
   options: GetAgentOptions,
-  ancestorIds: Set<string> = new Set(),
+  ancestorIds: Set<string> = new Set()
 ): AgentNode {
-  // Check for self-reference: if this agent's params contain a key matching its own id
+  const node = getEntityNode(id, "agent", options, ancestorIds);
+  return node as AgentNode;
+}
+
+/**
+ * Constructs a ToolNode from the given id and GetToolOptions.
+ * Traverses nested agents/tools recursively.
+ *
+ * @param id the unique identifier for the tool node
+ * @param options the GetToolOptions containing tool details and parameters
+ * @param ancestorIds Set of ancestor IDs to detect circular references
+ * @returns ToolNode
+ * @throws Error if a self-reference or circular reference is detected
+ */
+export function getToolNode(
+  id: string,
+  options: GetToolOptions,
+  ancestorIds: Set<string> = new Set()
+): ToolNode {
+  const node = getEntityNode(id, "tool", options, ancestorIds);
+  return node as ToolNode;
+}
+
+/**
+ * Internal: Constructs an EntityNode from the given id, type, and options.
+ * Handles both agents and tools.
+ */
+function getEntityNode(
+  id: string,
+  type: EntityType,
+  options: GetAgentOptions | GetToolOptions,
+  ancestorIds: Set<string> = new Set()
+): EntityNode {
+  // Check for self-reference
   if (options?.params && id in options.params) {
     throw new Error(
-      `Self-referencing agent detected: agent "${id}" cannot reference itself as a parameter`,
+      `Self-referencing ${type} detected: ${type} "${id}" cannot reference itself as a parameter`
     );
   }
 
-  // Check for circular reference: if this id is already in the ancestor chain
+  // Check for circular reference
   if (ancestorIds.has(id)) {
     const path = Array.from(ancestorIds).concat(id).join(" -> ");
-    throw new Error(`Circular agent reference detected: ${path}`);
+    throw new Error(`Circular ${type} reference detected: ${path}`);
   }
 
-  const children: AgentNode[] = [];
+  const children: EntityNode[] = [];
   const newAncestorIds = new Set(ancestorIds).add(id);
-
   const simpleParams: SimpleParams = {};
+
   for (const [paramId, value] of Object.entries(options?.params || {})) {
     if (typeof value === "string") {
       simpleParams[paramId] = value;
-    } else {
-      children.push(getAgentNode(paramId, value, newAncestorIds));
+    } else if (isAgentOptions(value)) {
+      children.push(getEntityNode(paramId, "agent", value, newAncestorIds));
+    } else if (isToolOptions(value)) {
+      children.push(getEntityNode(paramId, "tool", value, newAncestorIds));
     }
   }
 
-  return {
+  // Build the base node
+  const node: EntityNode = {
     id,
+    type,
     majorVersion: options.majorVersion,
     name: options.name,
     params: simpleParams,
     prompt: options.defaultPrompt,
     children,
-    // Hyperparameters
-    model: options.model,
-    temperature: options.temperature,
-    maxTokens: options.maxTokens,
-    topP: options.topP,
-    frequencyPenalty: options.frequencyPenalty,
-    presencePenalty: options.presencePenalty,
-    stopSequences: options.stopSequences,
   };
+
+  // Add hyperparameters only for agents
+  if (type === "agent" && isAgentOptions(options)) {
+    node.model = options.model;
+    node.provider = options.provider;
+    node.temperature = options.temperature;
+    node.maxTokens = options.maxTokens;
+    node.topP = options.topP;
+    node.frequencyPenalty = options.frequencyPenalty;
+    node.presencePenalty = options.presencePenalty;
+    node.stopSequences = options.stopSequences;
+    node.tools = options.tools;
+  }
+
+  return node;
 }
 
+// =============================================================================
+// Evaluation
+// =============================================================================
+
 /**
- * Evaluates an AgentNode by recursively inserting parameters and nested agents.
+ * Evaluates an EntityNode by recursively inserting parameters and nested entities.
  *
- * @param node The root AgentNode to evaluate.
+ * @param node The root EntityNode to evaluate.
  * @returns The fully evaluated prompt string.
  * @throws Error if any placeholders in the prompt don't have corresponding parameter values
  */
-export function evaluateAgent(node: AgentNode): string {
+export function evaluateEntity(node: EntityNode): string {
   const evaluated = new Map<string, string>();
 
-  function evaluate(node: AgentNode): string {
+  function evaluate(node: EntityNode): string {
     if (evaluated.has(node.id)) {
       return evaluated.get(node.id)!;
     }
@@ -87,7 +176,7 @@ export function evaluateAgent(node: AgentNode): string {
     }
 
     // Validate that all placeholders have corresponding parameters
-    validateAgentParams(node.prompt, params, node.id);
+    validateEntityParams(node.prompt, params, node.id, node.type);
 
     // Insert evaluated children into this prompt
     const result = insertParamsIntoPrompt(node.prompt, params);
@@ -99,19 +188,28 @@ export function evaluateAgent(node: AgentNode): string {
 }
 
 /**
- * Validates that all placeholders in a prompt have corresponding parameter values.
- *
- * @param prompt The prompt template to validate
- * @param params The available parameters
- * @param nodeId The node ID for error messaging
- * @throws Error if any placeholders don't have corresponding parameters
+ * Evaluates an AgentNode (alias for evaluateEntity for backwards compatibility)
  */
-function validateAgentParams(
+export function evaluateAgent(node: AgentNode): string {
+  return evaluateEntity(node);
+}
+
+/**
+ * Evaluates a ToolNode (alias for evaluateEntity)
+ */
+export function evaluateTool(node: ToolNode): string {
+  return evaluateEntity(node);
+}
+
+/**
+ * Validates that all placeholders in a prompt have corresponding parameter values.
+ */
+function validateEntityParams(
   prompt: string,
   params: SimpleParams,
   nodeId: string,
+  type: EntityType
 ): void {
-  // Extract all placeholders from the prompt
   const placeholderRegex = /\{\{(\w+)\}\}/g;
   const matches = prompt.matchAll(placeholderRegex);
   const missingParams: string[] = [];
@@ -126,7 +224,7 @@ function validateAgentParams(
   if (missingParams.length > 0) {
     const uniqueMissing = [...new Set(missingParams)];
     throw new Error(
-      `Missing parameter${uniqueMissing.length > 1 ? "s" : ""} in agent "${nodeId}": ${uniqueMissing.join(", ")}`,
+      `Missing parameter${uniqueMissing.length > 1 ? "s" : ""} in ${type} "${nodeId}": ${uniqueMissing.join(", ")}`
     );
   }
 }
@@ -140,7 +238,7 @@ function validateAgentParams(
  */
 export function insertParamsIntoPrompt(
   prompt: string,
-  params?: SimpleParams,
+  params?: SimpleParams
 ): string {
   if (!params) return prompt;
 
@@ -151,22 +249,92 @@ export function insertParamsIntoPrompt(
   return result;
 }
 
+// =============================================================================
+// Traversal
+// =============================================================================
+
 /**
- * Traverses an AgentNode tree and applies a callback to each node.
+ * Traverses an EntityNode tree and applies a callback to each node.
  */
-export function traverseAgentNode(
-  node: AgentNode,
-  callback: (node: AgentNode, parentId: string | null) => void,
-  parentId: string | null = null,
+export function traverseEntityNode(
+  node: EntityNode,
+  callback: (node: EntityNode, parentId: string | null) => void,
+  parentId: string | null = null
 ) {
   callback(node, parentId);
   for (const child of node.children) {
-    traverseAgentNode(child, callback, node.id);
+    traverseEntityNode(child, callback, node.id);
   }
 }
 
 /**
+ * Traverses an AgentNode tree (alias for backwards compatibility)
+ */
+export function traverseAgentNode(
+  node: AgentNode,
+  callback: (node: AgentNode, parentId: string | null) => void,
+  parentId: string | null = null
+) {
+  traverseEntityNode(
+    node,
+    callback as (node: EntityNode, parentId: string | null) => void,
+    parentId
+  );
+}
+
+// =============================================================================
+// Request Formatting
+// =============================================================================
+
+/**
+ * Formats an EntityNode into an EntityRequest suitable for the /sync_entities API.
+ */
+export function formatEntityRequest(node: EntityNode): EntityRequest {
+  function formatNode(node: EntityNode): EntityRequestItem {
+    const paramKeys = [
+      ...Object.keys(node.params),
+      ...node.children.map((child) => child.id),
+    ];
+    return {
+      id: node.id,
+      type: node.type,
+      name: node.name,
+      majorVersion: node.majorVersion,
+      prompt: node.prompt,
+      paramKeys,
+      childrenIds: node.children.map((child) => child.id),
+      childrenTypes: node.children.map((child) => child.type),
+      // Hyperparameters (only for agents)
+      model: node.model,
+      provider: node.provider,
+      temperature: node.temperature,
+      maxTokens: node.maxTokens,
+      topP: node.topP,
+      frequencyPenalty: node.frequencyPenalty,
+      presencePenalty: node.presencePenalty,
+      stopSequences: node.stopSequences,
+      tools: node.tools,
+    };
+  }
+
+  const map: Record<string, EntityRequestItem> = {};
+
+  traverseEntityNode(node, (currentNode) => {
+    map[currentNode.id] = formatNode(currentNode);
+  });
+
+  return {
+    entities: {
+      rootId: node.id,
+      rootType: node.type,
+      map,
+    },
+  };
+}
+
+/**
  * Formats an AgentNode into an AgentRequest suitable for the /sync_agents API.
+ * (Backwards compatible format)
  */
 export function formatAgentRequest(node: AgentNode): AgentRequest {
   function formatNode(node: AgentNode): AgentRequestItem {
@@ -176,6 +344,7 @@ export function formatAgentRequest(node: AgentNode): AgentRequest {
     ];
     return {
       id: node.id,
+      type: node.type,
       name: node.name,
       majorVersion: node.majorVersion,
       prompt: node.prompt,
@@ -183,20 +352,23 @@ export function formatAgentRequest(node: AgentNode): AgentRequest {
       childrenIds: node.children.map((child) => child.id),
       // Hyperparameters
       model: node.model,
+      provider: node.provider,
       temperature: node.temperature,
       maxTokens: node.maxTokens,
       topP: node.topP,
       frequencyPenalty: node.frequencyPenalty,
       presencePenalty: node.presencePenalty,
       stopSequences: node.stopSequences,
+      tools: node.tools,
     };
   }
 
   const map: Record<string, AgentRequestItem> = {};
 
   traverseAgentNode(node, (currentNode) => {
-    map[currentNode.id] = formatNode(currentNode);
+    map[currentNode.id] = formatNode(currentNode as AgentNode);
   });
+
   return {
     agents: {
       rootId: node.id,
@@ -205,14 +377,18 @@ export function formatAgentRequest(node: AgentNode): AgentRequest {
   };
 }
 
+// =============================================================================
+// Node Updates
+// =============================================================================
+
 /**
- * Updates all nodes in an AgentNode tree using a callback function.
+ * Updates all nodes in an EntityNode tree using a callback function.
  */
-export function updateAgentNodes(
-  root: AgentNode,
-  callback: (agentNode: AgentNode) => AgentNode,
-): AgentNode {
-  function updateNode(node: AgentNode): AgentNode {
+export function updateEntityNodes(
+  root: EntityNode,
+  callback: (entityNode: EntityNode) => EntityNode
+): EntityNode {
+  function updateNode(node: EntityNode): EntityNode {
     const updatedChildren = node.children.map(updateNode);
     const updatedNode = { ...node, children: updatedChildren };
     return callback(updatedNode);
@@ -220,9 +396,22 @@ export function updateAgentNodes(
   return updateNode(root);
 }
 
-// ============================================================================
+/**
+ * Updates all nodes in an AgentNode tree (alias for backwards compatibility)
+ */
+export function updateAgentNodes(
+  root: AgentNode,
+  callback: (agentNode: AgentNode) => AgentNode
+): AgentNode {
+  return updateEntityNodes(
+    root,
+    callback as (node: EntityNode) => EntityNode
+  ) as AgentNode;
+}
+
+// =============================================================================
 // Backwards Compatibility Aliases (deprecated)
-// ============================================================================
+// =============================================================================
 
 /** @deprecated Use getAgentNode instead */
 export const getPromptNode = getAgentNode;

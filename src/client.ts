@@ -1,21 +1,29 @@
 // client.ts
 import {
   GetAgentOptions,
+  GetToolOptions,
   HoneClient,
   HoneConfig,
   Message,
   AgentRequest,
   AgentResponse,
   AgentResult,
+  ToolResult,
+  EntityRequest,
+  EntityResponse,
   TrackConversationOptions,
   TrackRequest,
   TrackResponse,
 } from "./types";
 import {
   evaluateAgent,
+  evaluateEntity,
   formatAgentRequest,
+  formatEntityRequest,
   getAgentNode,
+  getToolNode,
   updateAgentNodes,
+  updateEntityNodes,
 } from "./agent";
 
 const DEFAULT_BASE_URL = "https://honeagents.ai/api";
@@ -109,35 +117,65 @@ export class Hone implements HoneClient {
       // Params are inserted client-side for flexibility and security
       return {
         systemPrompt: evaluateAgent(updatedAgentNode),
-        model: rootResponse?.model ?? options.model ?? null,
+        model: rootResponse?.model ?? options.model,
+        provider: rootResponse?.provider ?? options.provider,
         temperature: rootResponse?.temperature ?? options.temperature ?? null,
         maxTokens: rootResponse?.maxTokens ?? options.maxTokens ?? null,
         topP: rootResponse?.topP ?? options.topP ?? null,
-        frequencyPenalty: rootResponse?.frequencyPenalty ?? options.frequencyPenalty ?? null,
-        presencePenalty: rootResponse?.presencePenalty ?? options.presencePenalty ?? null,
+        frequencyPenalty:
+          rootResponse?.frequencyPenalty ?? options.frequencyPenalty ?? null,
+        presencePenalty:
+          rootResponse?.presencePenalty ?? options.presencePenalty ?? null,
         stopSequences: rootResponse?.stopSequences ?? options.stopSequences ?? [],
+        tools: rootResponse?.tools ?? options.tools ?? [],
       };
     } catch (error) {
       console.log("Error fetching agent, using fallback:", error);
       // Fallback: use local defaults
       return {
         systemPrompt: evaluateAgent(node),
-        model: options.model ?? null,
+        model: options.model,
+        provider: options.provider,
         temperature: options.temperature ?? null,
         maxTokens: options.maxTokens ?? null,
         topP: options.topP ?? null,
         frequencyPenalty: options.frequencyPenalty ?? null,
         presencePenalty: options.presencePenalty ?? null,
         stopSequences: options.stopSequences ?? [],
+        tools: options.tools ?? [],
       };
     }
   }
 
-  /**
-   * @deprecated Use agent() instead
-   */
-  async prompt(id: string, options: GetAgentOptions): Promise<AgentResult> {
-    return this.agent(id, options);
+
+  async tool(id: string, options: GetToolOptions): Promise<ToolResult> {
+    const node = getToolNode(id, options);
+    try {
+      const formattedRequest = formatEntityRequest(node);
+      const entityResponseMap = await this.makeRequest<
+        EntityRequest,
+        EntityResponse
+      >("/sync_entities", "POST", formattedRequest);
+
+      const updatedToolNode = updateEntityNodes(node, (entityNode) => {
+        const responseItem = entityResponseMap[entityNode.id];
+        return {
+          ...entityNode,
+          prompt: responseItem?.prompt || entityNode.prompt,
+        };
+      });
+
+      // Params are inserted client-side for flexibility and security
+      return {
+        prompt: evaluateEntity(updatedToolNode),
+      };
+    } catch (error) {
+      console.log("Error fetching tool, using fallback:", error);
+      // Fallback: use local defaults
+      return {
+        prompt: evaluateEntity(node),
+      };
+    }
   }
 
   async track(

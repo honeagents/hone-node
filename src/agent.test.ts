@@ -13,6 +13,8 @@ describe("utils", () => {
   describe("getAgentNode", () => {
     it("should create a simple agent node with no parameters", () => {
       const options: GetAgentOptions = {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Hello, World!",
       };
 
@@ -20,23 +22,28 @@ describe("utils", () => {
 
       expect(node).toEqual({
         id: "greeting",
+        type: "agent",
         majorVersion: undefined,
         name: undefined,
         params: {},
         prompt: "Hello, World!",
         children: [],
-        model: undefined,
+        model: "gpt-4",
+        provider: "openai",
         temperature: undefined,
         maxTokens: undefined,
         topP: undefined,
         frequencyPenalty: undefined,
         presencePenalty: undefined,
         stopSequences: undefined,
+        tools: undefined,
       });
     });
 
     it("should create an agent node with simple string parameters", () => {
       const options: GetAgentOptions = {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Hello, {{userName}}!",
         params: {
           userName: "Alice",
@@ -47,6 +54,7 @@ describe("utils", () => {
 
       expect(node).toEqual({
         id: "greeting",
+        type: "agent",
         majorVersion: undefined,
         name: undefined,
         params: {
@@ -54,18 +62,22 @@ describe("utils", () => {
         },
         prompt: "Hello, {{userName}}!",
         children: [],
-        model: undefined,
+        model: "gpt-4",
+        provider: "openai",
         temperature: undefined,
         maxTokens: undefined,
         topP: undefined,
         frequencyPenalty: undefined,
         presencePenalty: undefined,
         stopSequences: undefined,
+        tools: undefined,
       });
     });
 
     it("should create an agent node with majorVersion and name", () => {
       const options: GetAgentOptions = {
+        model: "gpt-4",
+        provider: "openai",
         majorVersion: 1,
         name: "greeting-agent",
         defaultPrompt: "Hello!",
@@ -79,8 +91,9 @@ describe("utils", () => {
 
     it("should create an agent node with hyperparameters", () => {
       const options: GetAgentOptions = {
-        defaultPrompt: "Hello!",
         model: "gpt-4",
+        provider: "openai",
+        defaultPrompt: "Hello!",
         temperature: 0.7,
         maxTokens: 1000,
         topP: 0.9,
@@ -92,6 +105,7 @@ describe("utils", () => {
       const node = getAgentNode("greeting", options);
 
       expect(node.model).toBe("gpt-4");
+      expect(node.provider).toBe("openai");
       expect(node.temperature).toBe(0.7);
       expect(node.maxTokens).toBe(1000);
       expect(node.topP).toBe(0.9);
@@ -102,9 +116,13 @@ describe("utils", () => {
 
     it("should create nested agent nodes from nested options", () => {
       const options: GetAgentOptions = {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Intro: {{introduction}}",
         params: {
           introduction: {
+            model: "gpt-4",
+            provider: "openai",
             defaultPrompt: "Hello, {{userName}}!",
             params: {
               userName: "Bob",
@@ -123,18 +141,26 @@ describe("utils", () => {
 
     it("should handle multiple nested agents", () => {
       const options: GetAgentOptions = {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "{{header}} Content: {{body}} {{footer}}",
         params: {
           header: {
+            model: "gpt-4",
+            provider: "openai",
             defaultPrompt: "Header text",
           },
           body: {
+            model: "gpt-4",
+            provider: "openai",
             defaultPrompt: "Body with {{detail}}",
             params: {
               detail: "important info",
             },
           },
           footer: {
+            model: "gpt-4",
+            provider: "openai",
             defaultPrompt: "Footer",
           },
         },
@@ -152,9 +178,13 @@ describe("utils", () => {
 
     it("should throw an error for self-referencing agents", () => {
       const options: GetAgentOptions = {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "This is an agent that references {{system-agent}}",
         params: {
           "system-agent": {
+            model: "gpt-4",
+            provider: "openai",
             defaultPrompt: "This should cause an error",
           },
         },
@@ -165,12 +195,18 @@ describe("utils", () => {
 
     it("should throw an error for circular agent references", () => {
       const options: GetAgentOptions = {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "A references {{b}}",
         params: {
           b: {
+            model: "gpt-4",
+            provider: "openai",
             defaultPrompt: "B references {{a}}",
             params: {
               a: {
+                model: "gpt-4",
+                provider: "openai",
                 defaultPrompt: "A references {{b}} (circular)",
               },
             },
@@ -183,6 +219,8 @@ describe("utils", () => {
 
     it("should throw an error when agent has placeholders without matching parameters", () => {
       const options: GetAgentOptions = {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "Hello {{name}}, your role is {{role}}",
         params: {
           name: "Alice",
@@ -198,6 +236,8 @@ describe("utils", () => {
 
     it("should throw an error listing all missing parameters", () => {
       const options: GetAgentOptions = {
+        model: "gpt-4",
+        provider: "openai",
         defaultPrompt: "{{greeting}} {{name}}, you are {{role}} in {{location}}",
         params: {
           name: "Bob",
@@ -274,6 +314,7 @@ describe("utils", () => {
     it("should evaluate a simple agent with params", () => {
       const node: AgentNode = {
         id: "greeting",
+        type: "agent",
         params: { userName: "Alice" },
         prompt: "Hello, {{userName}}!",
         children: [],
@@ -286,11 +327,13 @@ describe("utils", () => {
     it("should evaluate nested agents depth-first", () => {
       const node: AgentNode = {
         id: "main",
+        type: "agent",
         params: {},
         prompt: "Intro: {{introduction}}",
         children: [
           {
             id: "introduction",
+            type: "agent",
             params: { userName: "Bob" },
             prompt: "Hello, {{userName}}!",
             children: [],
@@ -305,16 +348,19 @@ describe("utils", () => {
     it("should evaluate multiple levels of nesting", () => {
       const node: AgentNode = {
         id: "main",
+        type: "agent",
         params: {},
         prompt: "Doc: {{section}}",
         children: [
           {
             id: "section",
+            type: "agent",
             params: {},
             prompt: "Section: {{paragraph}}",
             children: [
               {
                 id: "paragraph",
+                type: "agent",
                 params: { text: "content" },
                 prompt: "Para: {{text}}",
                 children: [],
@@ -331,23 +377,27 @@ describe("utils", () => {
     it("should handle multiple children", () => {
       const node: AgentNode = {
         id: "document",
+        type: "agent",
         params: {},
         prompt: "{{header}}\n{{body}}\n{{footer}}",
         children: [
           {
             id: "header",
+            type: "agent",
             params: {},
             prompt: "HEADER",
             children: [],
           },
           {
             id: "body",
+            type: "agent",
             params: { content: "text" },
             prompt: "Body: {{content}}",
             children: [],
           },
           {
             id: "footer",
+            type: "agent",
             params: {},
             prompt: "FOOTER",
             children: [],
@@ -362,6 +412,7 @@ describe("utils", () => {
     it("should handle agent with no children or params", () => {
       const node: AgentNode = {
         id: "simple",
+        type: "agent",
         params: {},
         prompt: "Static text",
         children: [],
@@ -375,6 +426,7 @@ describe("utils", () => {
       // This tests that if a node is referenced multiple times, it's only evaluated once
       const sharedChild: AgentNode = {
         id: "shared",
+        type: "agent",
         params: {},
         prompt: "Shared",
         children: [],
@@ -382,6 +434,7 @@ describe("utils", () => {
 
       const node: AgentNode = {
         id: "main",
+        type: "agent",
         params: {},
         prompt: "{{shared}}",
         children: [sharedChild],
@@ -396,6 +449,7 @@ describe("utils", () => {
     it("should visit single node", () => {
       const node: AgentNode = {
         id: "root",
+        type: "agent",
         params: {},
         prompt: "test",
         children: [],
@@ -412,16 +466,19 @@ describe("utils", () => {
     it("should visit nodes in depth-first order", () => {
       const node: AgentNode = {
         id: "root",
+        type: "agent",
         params: {},
         prompt: "test",
         children: [
           {
             id: "child1",
+            type: "agent",
             params: {},
             prompt: "test",
             children: [
               {
                 id: "grandchild1",
+                type: "agent",
                 params: {},
                 prompt: "test",
                 children: [],
@@ -430,6 +487,7 @@ describe("utils", () => {
           },
           {
             id: "child2",
+            type: "agent",
             params: {},
             prompt: "test",
             children: [],
@@ -448,16 +506,19 @@ describe("utils", () => {
     it("should pass correct parent ID to callback", () => {
       const node: AgentNode = {
         id: "root",
+        type: "agent",
         params: {},
         prompt: "test",
         children: [
           {
             id: "child1",
+            type: "agent",
             params: {},
             prompt: "test",
             children: [
               {
                 id: "grandchild1",
+                type: "agent",
                 params: {},
                 prompt: "test",
                 children: [],
@@ -466,6 +527,7 @@ describe("utils", () => {
           },
           {
             id: "child2",
+            type: "agent",
             params: {},
             prompt: "test",
             children: [],
@@ -491,6 +553,7 @@ describe("utils", () => {
     it("should format a simple agent node", () => {
       const node: AgentNode = {
         id: "greeting",
+        type: "agent",
         name: "greeting-agent",
         majorVersion: 1,
         params: { userName: "Alice" },
@@ -503,29 +566,34 @@ describe("utils", () => {
       expect(request.agents.rootId).toBe("greeting");
       expect(request.agents.map["greeting"]).toEqual({
         id: "greeting",
+        type: "agent",
         name: "greeting-agent",
         majorVersion: 1,
         prompt: "Hello, {{userName}}!",
         paramKeys: ["userName"],
         childrenIds: [],
         model: undefined,
+        provider: undefined,
         temperature: undefined,
         maxTokens: undefined,
         topP: undefined,
         frequencyPenalty: undefined,
         presencePenalty: undefined,
         stopSequences: undefined,
+        tools: undefined,
       });
     });
 
     it("should format nested agent nodes", () => {
       const node: AgentNode = {
         id: "main",
+        type: "agent",
         params: {},
         prompt: "Intro: {{introduction}}",
         children: [
           {
             id: "introduction",
+            type: "agent",
             params: { userName: "Bob" },
             prompt: "Hello, {{userName}}!",
             children: [],
@@ -538,43 +606,51 @@ describe("utils", () => {
       expect(request.agents.rootId).toBe("main");
       expect(request.agents.map["main"]).toEqual({
         id: "main",
+        type: "agent",
         name: undefined,
         majorVersion: undefined,
         prompt: "Intro: {{introduction}}",
         paramKeys: ["introduction"],
         childrenIds: ["introduction"],
         model: undefined,
+        provider: undefined,
         temperature: undefined,
         maxTokens: undefined,
         topP: undefined,
         frequencyPenalty: undefined,
         presencePenalty: undefined,
         stopSequences: undefined,
+        tools: undefined,
       });
       expect(request.agents.map["introduction"]).toEqual({
         id: "introduction",
+        type: "agent",
         name: undefined,
         majorVersion: undefined,
         prompt: "Hello, {{userName}}!",
         paramKeys: ["userName"],
         childrenIds: [],
         model: undefined,
+        provider: undefined,
         temperature: undefined,
         maxTokens: undefined,
         topP: undefined,
         frequencyPenalty: undefined,
         presencePenalty: undefined,
         stopSequences: undefined,
+        tools: undefined,
       });
     });
 
     it("should format agent node with hyperparameters", () => {
       const node: AgentNode = {
         id: "greeting",
+        type: "agent",
         params: {},
         prompt: "Hello!",
         children: [],
         model: "gpt-4",
+        provider: "openai",
         temperature: 0.7,
         maxTokens: 1000,
         topP: 0.9,
@@ -586,6 +662,7 @@ describe("utils", () => {
       const request = formatAgentRequest(node);
 
       expect(request.agents.map["greeting"].model).toBe("gpt-4");
+      expect(request.agents.map["greeting"].provider).toBe("openai");
       expect(request.agents.map["greeting"].temperature).toBe(0.7);
       expect(request.agents.map["greeting"].maxTokens).toBe(1000);
       expect(request.agents.map["greeting"].topP).toBe(0.9);
@@ -597,16 +674,19 @@ describe("utils", () => {
     it("should format deeply nested structure", () => {
       const node: AgentNode = {
         id: "doc",
+        type: "agent",
         params: {},
         prompt: "{{section}}",
         children: [
           {
             id: "section",
+            type: "agent",
             params: {},
             prompt: "{{paragraph}}",
             children: [
               {
                 id: "paragraph",
+                type: "agent",
                 params: { text: "content" },
                 prompt: "{{text}}",
                 children: [],
@@ -628,23 +708,27 @@ describe("utils", () => {
     it("should handle multiple children", () => {
       const node: AgentNode = {
         id: "document",
+        type: "agent",
         params: {},
         prompt: "{{header}} {{body}} {{footer}}",
         children: [
           {
             id: "header",
+            type: "agent",
             params: {},
             prompt: "HEADER",
             children: [],
           },
           {
             id: "body",
+            type: "agent",
             params: { content: "text" },
             prompt: "{{content}}",
             children: [],
           },
           {
             id: "footer",
+            type: "agent",
             params: {},
             prompt: "FOOTER",
             children: [],
@@ -667,6 +751,7 @@ describe("utils", () => {
     it("should update a single node", () => {
       const node: AgentNode = {
         id: "greeting",
+        type: "agent",
         params: {},
         prompt: "Old prompt",
         children: [],
@@ -684,17 +769,20 @@ describe("utils", () => {
     it("should update all nodes in a nested structure", () => {
       const node: AgentNode = {
         id: "root",
+        type: "agent",
         params: {},
         prompt: "root",
         children: [
           {
             id: "child1",
+            type: "agent",
             params: {},
             prompt: "child1",
             children: [],
           },
           {
             id: "child2",
+            type: "agent",
             params: {},
             prompt: "child2",
             children: [],
@@ -715,16 +803,19 @@ describe("utils", () => {
     it("should update deeply nested nodes", () => {
       const node: AgentNode = {
         id: "level1",
+        type: "agent",
         params: {},
         prompt: "level1",
         children: [
           {
             id: "level2",
+            type: "agent",
             params: {},
             prompt: "level2",
             children: [
               {
                 id: "level3",
+                type: "agent",
                 params: {},
                 prompt: "level3",
                 children: [],
@@ -747,6 +838,7 @@ describe("utils", () => {
     it("should preserve node structure while updating", () => {
       const node: AgentNode = {
         id: "root",
+        type: "agent",
         name: "root-name",
         majorVersion: 1,
         params: { key: "value" },
@@ -754,6 +846,7 @@ describe("utils", () => {
         children: [
           {
             id: "child",
+            type: "agent",
             params: {},
             prompt: "child-original",
             children: [],
@@ -777,17 +870,20 @@ describe("utils", () => {
     it("should allow conditional updates", () => {
       const node: AgentNode = {
         id: "root",
+        type: "agent",
         params: {},
         prompt: "root",
         children: [
           {
             id: "update-me",
+            type: "agent",
             params: {},
             prompt: "old",
             children: [],
           },
           {
             id: "leave-me",
+            type: "agent",
             params: {},
             prompt: "unchanged",
             children: [],
