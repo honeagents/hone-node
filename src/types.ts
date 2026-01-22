@@ -21,8 +21,8 @@ export type EntityType = "agent" | "tool" | "prompt";
 // Params Types
 // =============================================================================
 
-// Use explicit generic to break circular reference
-export type ParamsValue = string | GetAgentOptions<Record<string, unknown>> | GetToolOptions | GetTextPromptOptions;
+
+export type ParamsValue = string | GetTextPromptOptions
 export type Params = Record<string, ParamsValue>;
 export type SimpleParams = Record<string, string>;
 
