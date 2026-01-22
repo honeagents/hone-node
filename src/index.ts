@@ -17,6 +17,8 @@ export type {
   AgentResponse,
   AgentResponseItem,
   Hyperparameters,
+  Message,
+  ToolCall,
   // Backwards compatibility
   HonePrompt,
   GetPromptOptions,
@@ -24,6 +26,19 @@ export type {
   PromptRequest,
   PromptResponse,
 } from "./types";
+// Tool tracking helpers
+export {
+  createToolCallMessage,
+  createToolResultMessage,
+  extractOpenAIMessages,
+  extractAnthropicMessages,
+  extractGeminiMessages,
+  // Short aliases
+  toolResult,
+  fromOpenAI,
+  fromAnthropic,
+  fromGemini,
+} from "./tools";
 export {
   getAgentNode,
   evaluateAgent,

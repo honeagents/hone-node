@@ -272,9 +272,26 @@ export type HoneTextPrompt = (
 // Tracking Types
 // =============================================================================
 
+/**
+ * Represents a tool call made by the assistant.
+ * Compatible with OpenAI's function calling format.
+ */
+export type ToolCall = {
+  /** Unique identifier for this tool call */
+  id: string;
+  /** Name of the tool/function being called */
+  name: string;
+  /** JSON string of the arguments to pass to the tool */
+  arguments: string;
+};
+
 export type Message = {
-  role: "user" | "assistant" | "system";
+  role: "user" | "assistant" | "system" | "tool";
   content: string;
+  /** Tool calls requested by the assistant (present when role is "assistant") */
+  tool_calls?: ToolCall[];
+  /** ID of the tool call this message is responding to (present when role is "tool") */
+  tool_call_id?: string;
 };
 
 export type TrackConversationOptions = {
