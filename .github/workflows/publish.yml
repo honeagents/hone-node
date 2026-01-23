@@ -49,7 +49,7 @@ jobs:
 
       - name: Publish to npm
         if: steps.version-check.outputs.skip != 'true'
-        run: npm publish --access public --provenance
+        run: npm publish --access public
 
       - name: Create git tag
         if: steps.version-check.outputs.skip != 'true'
