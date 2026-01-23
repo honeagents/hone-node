@@ -41,7 +41,7 @@ export type Hyperparameters = {
    * LLM provider identifier. Use AIProvider enum for type safety.
    * @example AIProvider.OpenAI, AIProvider.Anthropic, "openai", "anthropic"
    */
-  provider?: AIProviderValue | (string & {});
+  provider?: AIProviderValue | (string & Record<string, never>);
   /** Sampling temperature (0.00 to 2.00) */
   temperature?: number;
   /** Maximum output tokens */
