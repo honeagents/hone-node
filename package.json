@@ -1,6 +1,6 @@
 {
   "name": "@honeagents/hone",
-  "version": "0.1.0",
+  "version": "0.1.0-beta.1",
   "description": "Hone SDK - AI Experience Engineering Platform for tracking and improving LLM applications",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
