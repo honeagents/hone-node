@@ -1,0 +1,61 @@
+name: Publish to npm
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 0.1.0)'
+        required: false
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write  # Required for OIDC trusted publishing
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm run test:unit
+
+      - name: Run type check
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      # npm trusted publishing with OIDC - no NPM_TOKEN needed!
+      # Requires npm v11.5.1+ and trusted publisher configured on npm
+      # See: https://docs.npmjs.com/trusted-publishers/
+      - name: Publish to npm (OIDC)
+        run: npm publish --access public
+
+  create-release:
+    needs: publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v1
+        with:
+          generate_release_notes: true

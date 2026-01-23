@@ -1,0 +1,36 @@
+# Source files (dist is included)
+src/
+
+# Config files
+tsconfig.json
+tsup.config.ts
+vitest.config.ts
+.eslintrc*
+
+# Test files
+**/*.test.ts
+**/*.spec.ts
+__tests__/
+
+# Development files
+.env*
+.DS_Store
+*.log
+
+# Lock files (let consumers use their own)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.github/
+
+# Misc
+node_modules/
+coverage/
+.nyc_output/

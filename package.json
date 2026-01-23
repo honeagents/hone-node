@@ -13,8 +13,7 @@
     }
   },
   "files": [
-    "dist",
-    "src"
+    "dist"
   ],
   "scripts": {
     "build": "tsup",
@@ -22,9 +21,8 @@
     "lint": "eslint src --ext .ts",
     "test": "vitest",
     "test:unit": "vitest run",
-    "test:integration": "vitest run --config ../tests/integration/vitest.config.ts",
-    "test:integration:watch": "vitest --config ../tests/integration/vitest.config.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build && npm run test:unit && npm run typecheck"
   },
   "keywords": [
     "ai",
@@ -35,20 +33,23 @@
     "langsmith",
     "hone",
     "openai",
-    "anthropic"
+    "anthropic",
+    "vercel-ai-sdk",
+    "ai-sdk"
   ],
-  "author": "Hone Team",
+  "author": "Hone Team <team@honeagents.ai>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/stone-pebble/hone-sdk"
+    "url": "git+https://github.com/honeagents/hone-sdk.git"
   },
   "homepage": "https://honeagents.ai",
   "bugs": {
-    "url": "https://github.com/stone-pebble/hone-sdk/issues"
+    "url": "https://github.com/honeagents/hone-sdk/issues"
   },
-  "dependencies": {
-    "@hone/shared": "*"
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
@@ -58,8 +59,6 @@
     "typescript": "^5.0.0",
     "vitest": "^1.0.0"
   },
-  "peerDependencies": {},
-  "peerDependenciesMeta": {},
   "engines": {
     "node": ">=18.0.0"
   }
