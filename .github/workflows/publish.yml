@@ -51,7 +51,15 @@ jobs:
 
       - name: Publish to npm
         if: steps.version-check.outputs.skip != 'true'
-        run: npm publish --access public
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if [[ "$VERSION" == *"-"* ]]; then
+            # Prerelease version (contains hyphen like -beta, -alpha, -rc)
+            npm publish --access public --tag beta
+          else
+            # Stable version
+            npm publish --access public
+          fi
 
       - name: Create git tag
         if: steps.version-check.outputs.skip != 'true'
