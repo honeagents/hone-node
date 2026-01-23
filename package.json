@@ -1,5 +1,5 @@
 {
-  "name": "hone-sdk",
+  "name": "@honeagents/hone",
   "version": "0.1.0",
   "description": "Hone SDK - AI Experience Engineering Platform for tracking and improving LLM applications",
   "main": "dist/index.js",
@@ -42,11 +42,11 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/honeagents/hone-sdk.git"
+    "url": "git+https://github.com/honeagents/hone-node.git"
   },
   "homepage": "https://honeagents.ai",
   "bugs": {
-    "url": "https://github.com/honeagents/hone-sdk/issues"
+    "url": "https://github.com/honeagents/hone-node/issues"
   },
   "publishConfig": {
     "access": "public",

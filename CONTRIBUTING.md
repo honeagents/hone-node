@@ -18,8 +18,8 @@ By participating in this project, you agree to maintain a respectful and inclusi
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/YOUR_USERNAME/hone-sdk.git
-   cd hone-sdk
+   git clone https://github.com/YOUR_USERNAME/hone-node.git
+   cd hone-node
    ```
 3. Install dependencies:
    ```bash

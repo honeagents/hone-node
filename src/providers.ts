@@ -8,7 +8,7 @@
  *
  * @example
  * ```typescript
- * import { AIProvider } from "hone-sdk";
+ * import { AIProvider } from "@honeagents/hone";
  *
  * const agent = await hone.agent("my-agent", {
  *   provider: AIProvider.OpenAI,

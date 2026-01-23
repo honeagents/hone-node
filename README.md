@@ -5,13 +5,13 @@ The official TypeScript/JavaScript SDK for [Hone](https://honeagents.ai) - the A
 ## Installation
 
 ```bash
-npm install hone-sdk
+npm install @honeagents/hone
 ```
 
 ## Quick Start
 
 ```typescript
-import { Hone, AIProvider } from "hone-sdk";
+import { Hone, AIProvider } from "@honeagents/hone";
 
 // Initialize the client
 const hone = new Hone({
@@ -54,7 +54,7 @@ console.log(agent.temperature);
 ### Initialization
 
 ```typescript
-import { Hone } from "hone-sdk";
+import { Hone } from "@honeagents/hone";
 
 const hone = new Hone({
   apiKey: "your-api-key", // Required
@@ -175,7 +175,7 @@ You have access to these tools:
 Use type-safe provider constants:
 
 ```typescript
-import { AIProvider, isValidProvider, getProviderDisplayName } from "hone-sdk";
+import { AIProvider, isValidProvider, getProviderDisplayName } from "@honeagents/hone";
 
 // Use enum values
 const config = {
@@ -230,7 +230,7 @@ import {
   fromAnthropic,
   fromGemini,
   toolResult,
-} from "hone-sdk";
+} from "@honeagents/hone";
 
 // Extract messages from OpenAI response
 const messages = extractOpenAIMessages(openaiResponse);
@@ -278,7 +278,7 @@ import type {
   Message,
   ToolCall,
   AIProviderValue,
-} from "hone-sdk";
+} from "@honeagents/hone";
 ```
 
 ### Generic Extra Data
@@ -313,4 +313,4 @@ MIT License - see [LICENSE](./LICENSE) for details.
 
 - [Hone Platform](https://honeagents.ai)
 - [Documentation](https://docs.honeagents.ai)
-- [GitHub Issues](https://github.com/honeagents/hone-sdk/issues)
+- [GitHub Issues](https://github.com/honeagents/hone-node/issues)
