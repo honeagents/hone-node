@@ -42,6 +42,7 @@ console.log(agent.temperature);
 ## Features
 
 - **Agent Management**: Define and fetch agent configurations with system prompts and hyperparameters
+- **Zero-Friction Tracking**: Track conversations by passing native provider formats directly - no conversion needed
 - **Tool Definitions**: Manage tool/function descriptions for function calling
 - **Text Prompts**: Reusable text templates that can be nested in agents or tools
 - **Parameter Substitution**: Dynamic prompt templates with `{{variable}}` syntax
@@ -126,11 +127,12 @@ const prompt = await hone.prompt("tone-guidelines", {
 console.log(prompt.text); // "Always be friendly and professional."
 ```
 
-### `hone.track(id, messages, options)`
+### `hone.track(id, input, options)`
 
-Track a conversation for analysis.
+Track a conversation for analysis. Accepts either normalized messages or **provider-specific formats** for zero-friction tracking.
 
 ```typescript
+// Normalized format (works with any provider)
 await hone.track(
   "conversation-123",
   [
@@ -140,6 +142,8 @@ await hone.track(
   { sessionId: "session-abc" }
 );
 ```
+
+See [Zero-Friction Tracking](#zero-friction-tracking) for provider-specific examples.
 
 ## Nesting Entities
 
@@ -169,6 +173,183 @@ You have access to these tools:
   },
 });
 ```
+
+## Zero-Friction Tracking
+
+The SDK supports **zero-friction tracking** - pass your messages and responses in the provider's native format without any conversion. The SDK normalizes everything internally.
+
+### Why Zero-Friction?
+
+Different LLM providers have different message formats:
+- **OpenAI**: Messages with `role` and `content`, tool calls in `tool_calls` array
+- **Anthropic**: Separate `system` parameter, content blocks instead of strings
+- **Gemini**: Uses `contents` with `parts`, roles are `user`/`model`
+
+Instead of manually converting between formats, just pass what you already have.
+
+### OpenAI
+
+```typescript
+import OpenAI from "openai";
+import { Hone } from "@honeagents/hone";
+
+const openai = new OpenAI();
+const hone = new Hone({ apiKey: process.env.HONE_API_KEY! });
+
+// Your messages in OpenAI's native format
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+  { role: "system", content: "You are a helpful assistant." },
+  { role: "user", content: "What's the capital of France?" },
+];
+
+// Make the API call
+const response = await openai.chat.completions.create({
+  model: "gpt-4o",
+  messages,
+});
+
+// Zero-friction tracking - just pass what you have!
+await hone.track(
+  "my-conversation",
+  {
+    provider: "openai",
+    messages,  // Your OpenAI messages array
+    response,  // The raw ChatCompletion response
+  },
+  { sessionId: "session-123" }
+);
+```
+
+### Anthropic
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { Hone } from "@honeagents/hone";
+
+const anthropic = new Anthropic();
+const hone = new Hone({ apiKey: process.env.HONE_API_KEY! });
+
+// Anthropic has system prompt separate from messages
+const systemPrompt = "You are a helpful assistant.";
+const messages: Anthropic.MessageParam[] = [
+  { role: "user", content: "What's the capital of Japan?" },
+];
+
+// Make the API call
+const response = await anthropic.messages.create({
+  model: "claude-sonnet-4-20250514",
+  system: systemPrompt,
+  messages,
+  max_tokens: 1024,
+});
+
+// Zero-friction tracking - include the system prompt
+await hone.track(
+  "my-conversation",
+  {
+    provider: "anthropic",
+    messages,       // Your Anthropic messages array
+    system: systemPrompt,  // Anthropic's separate system prompt
+    response,       // The raw Message response
+  },
+  { sessionId: "session-123" }
+);
+```
+
+### Google Gemini
+
+```typescript
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { Hone } from "@honeagents/hone";
+
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
+const hone = new Hone({ apiKey: process.env.HONE_API_KEY! });
+
+// Gemini uses "contents" with "parts"
+const systemInstruction = "You are a helpful assistant.";
+const model = genAI.getGenerativeModel({
+  model: "gemini-1.5-flash",
+  systemInstruction,
+});
+
+const contents = [
+  { role: "user" as const, parts: [{ text: "What's the capital of Brazil?" }] },
+];
+
+// Make the API call
+const response = await model.generateContent({ contents });
+
+// Zero-friction tracking
+await hone.track(
+  "my-conversation",
+  {
+    provider: "gemini",
+    contents,              // Your Gemini contents array
+    systemInstruction,     // Gemini's system instruction
+    response,              // The raw GenerateContentResult
+  },
+  { sessionId: "session-123" }
+);
+```
+
+### Multi-Turn Conversations
+
+For multi-turn conversations, just keep adding to your messages array and track after each turn:
+
+```typescript
+// OpenAI example
+const messages: OpenAI.ChatCompletionMessageParam[] = [
+  { role: "system", content: agent.systemPrompt },
+  { role: "user", content: "Hello!" },
+];
+
+// First turn
+const response1 = await openai.chat.completions.create({ model: "gpt-4o", messages });
+await hone.track("convo", { provider: "openai", messages, response: response1 }, { sessionId });
+
+// Add assistant response and user follow-up
+messages.push({ role: "assistant", content: response1.choices[0].message.content ?? "" });
+messages.push({ role: "user", content: "Tell me more!" });
+
+// Second turn
+const response2 = await openai.chat.completions.create({ model: "gpt-4o", messages });
+await hone.track("convo", { provider: "openai", messages, response: response2 }, { sessionId });
+```
+
+### With Tool Calls
+
+Tool calls are automatically extracted and normalized:
+
+```typescript
+// OpenAI with tools
+const response = await openai.chat.completions.create({
+  model: "gpt-4o",
+  messages,
+  tools: [{ type: "function", function: { name: "get_weather", ... } }],
+});
+
+// If the model made tool calls, they're automatically extracted
+await hone.track("convo", { provider: "openai", messages, response }, { sessionId });
+
+// After executing the tool, add the result and continue
+messages.push(response.choices[0].message); // Contains tool_calls
+messages.push({
+  role: "tool",
+  tool_call_id: response.choices[0].message.tool_calls![0].id,
+  content: JSON.stringify({ temperature: 72 }),
+});
+
+const response2 = await openai.chat.completions.create({ model: "gpt-4o", messages });
+await hone.track("convo", { provider: "openai", messages, response: response2 }, { sessionId });
+```
+
+### Supported Formats Summary
+
+| Provider | Input Type | System Prompt | Response Type |
+|----------|------------|---------------|---------------|
+| OpenAI | `ChatCompletionMessageParam[]` | In messages array | `ChatCompletion` |
+| Anthropic | `MessageParam[]` | Separate `system` param | `Message` |
+| Gemini | `Content[]` | Separate `systemInstruction` | `GenerateContentResult` |
 
 ## Provider Constants
 
@@ -267,16 +448,34 @@ The SDK is written in TypeScript and provides comprehensive type definitions:
 
 ```typescript
 import type {
+  // Client types
   HoneClient,
   HoneConfig,
+
+  // Agent types
   AgentResult,
-  ToolResult,
-  TextPromptResult,
   GetAgentOptions,
+
+  // Tool types
+  ToolResult,
   GetToolOptions,
+
+  // Prompt types
+  TextPromptResult,
   GetTextPromptOptions,
+
+  // Message types
   Message,
   ToolCall,
+
+  // Tracking types (zero-friction)
+  TrackInput,
+  TrackOpenAIInput,
+  TrackAnthropicInput,
+  TrackGeminiInput,
+  TrackConversationOptions,
+
+  // Provider types
   AIProviderValue,
 } from "@honeagents/hone";
 ```

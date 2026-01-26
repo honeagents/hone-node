@@ -300,7 +300,7 @@ export type TrackConversationOptions = {
 
 export type HoneTrack = (
   id: string,
-  messages: Message[],
+  input: TrackInput,
   options: TrackConversationOptions
 ) => Promise<void>;
 
@@ -312,6 +312,70 @@ export type TrackRequest = {
 };
 
 export type TrackResponse = void;
+
+// =============================================================================
+// Provider-Specific Input Types (for zero-friction tracking)
+// =============================================================================
+
+// Import types from provider SDKs (dev dependencies)
+import type { ChatCompletionMessageParam, ChatCompletion } from "openai/resources/chat/completions";
+import type { MessageParam, Message as AnthropicMessage } from "@anthropic-ai/sdk/resources/messages";
+import type { Content, GenerateContentResult } from "@google/generative-ai";
+
+/**
+ * Track input for OpenAI conversations.
+ * Pass your messages and response exactly as-is from the OpenAI SDK.
+ */
+export type TrackOpenAIInput = {
+  provider: "openai";
+  messages: ChatCompletionMessageParam[];
+  response: ChatCompletion;
+};
+
+/**
+ * Track input for Anthropic conversations.
+ * Pass your messages, system prompt, and response exactly as-is from the Anthropic SDK.
+ */
+export type TrackAnthropicInput = {
+  provider: "anthropic";
+  messages: MessageParam[];
+  system?: string;
+  response: AnthropicMessage;
+};
+
+/**
+ * Track input for Gemini conversations.
+ * Pass your contents, system instruction, and response exactly as-is from the Gemini SDK.
+ */
+export type TrackGeminiInput = {
+  provider: "gemini";
+  contents: Content[];
+  systemInstruction?: string;
+  response: GenerateContentResult;
+};
+
+/**
+ * Union type for all track inputs.
+ * Accepts either the normalized Message[] format or provider-specific formats.
+ *
+ * @example
+ * // OpenAI - just pass what you have
+ * await hone.track("convo", { provider: "openai", messages, response }, { sessionId })
+ *
+ * // Anthropic
+ * await hone.track("convo", { provider: "anthropic", messages, system, response }, { sessionId })
+ *
+ * // Gemini
+ * await hone.track("convo", { provider: "gemini", contents, systemInstruction, response }, { sessionId })
+ *
+ * // Or use the normalized format directly
+ * await hone.track("convo", normalizedMessages, { sessionId })
+ */
+export type TrackInput =
+  | Message[]
+  | TrackOpenAIInput
+  | TrackAnthropicInput
+  | TrackGeminiInput;
 
 // =============================================================================
 // Client Interface
@@ -340,10 +404,25 @@ export type HoneClient = {
    */
   prompt: HoneTextPrompt;
   /**
-   * Adds messages to track a conversation under the given ID.
+   * Tracks a conversation under the given ID.
+   * Accepts either normalized Message[] or provider-specific formats for zero-friction tracking.
+   *
    * @param id The unique identifier for the conversation to track.
-   * @param messages An array of Message objects representing the conversation.
-   * @param options Optional TrackConversationOptions such as sessionId.
+   * @param input Either a Message[] array or a provider-specific input object.
+   * @param options TrackConversationOptions including sessionId.
+   *
+   * @example
+   * // OpenAI - just pass your messages and response
+   * await hone.track("convo", { provider: "openai", messages, response }, { sessionId })
+   *
+   * // Anthropic - include system prompt
+   * await hone.track("convo", { provider: "anthropic", messages, system, response }, { sessionId })
+   *
+   * // Gemini - use contents and systemInstruction
+   * await hone.track("convo", { provider: "gemini", contents, systemInstruction, response }, { sessionId })
+   *
+   * // Or use normalized format directly
+   * await hone.track("convo", normalizedMessages, { sessionId })
    */
   track: HoneTrack;
 };

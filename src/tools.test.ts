@@ -111,7 +111,7 @@ describe("Tool tracking helpers", () => {
         ],
       };
 
-      const messages = extractOpenAIMessages(response);
+      const messages = extractOpenAIMessages(response as any);
 
       expect(messages).toHaveLength(1);
       expect(messages[0]).toEqual({
@@ -130,6 +130,7 @@ describe("Tool tracking helpers", () => {
               tool_calls: [
                 {
                   id: "call_abc123",
+                  type: "function" as const,
                   function: {
                     name: "get_weather",
                     arguments: '{"location":"San Francisco"}',
@@ -141,7 +142,7 @@ describe("Tool tracking helpers", () => {
         ],
       };
 
-      const messages = extractOpenAIMessages(response);
+      const messages = extractOpenAIMessages(response as any);
 
       expect(messages).toHaveLength(1);
       expect(messages[0].role).toBe("assistant");
@@ -164,6 +165,7 @@ describe("Tool tracking helpers", () => {
               tool_calls: [
                 {
                   id: "call_1",
+                  type: "function" as const,
                   function: {
                     name: "get_weather",
                     arguments: '{"location":"SF"}',
@@ -171,6 +173,7 @@ describe("Tool tracking helpers", () => {
                 },
                 {
                   id: "call_2",
+                  type: "function" as const,
                   function: {
                     name: "get_time",
                     arguments: '{"timezone":"PST"}',
@@ -182,7 +185,7 @@ describe("Tool tracking helpers", () => {
         ],
       };
 
-      const messages = extractOpenAIMessages(response);
+      const messages = extractOpenAIMessages(response as any);
 
       expect(messages[0].tool_calls).toHaveLength(2);
       expect(messages[0].tool_calls![0].name).toBe("get_weather");
@@ -202,7 +205,7 @@ describe("Tool tracking helpers", () => {
         ],
       };
 
-      const messages = extractOpenAIMessages(response);
+      const messages = extractOpenAIMessages(response as any);
 
       expect(messages[0].tool_calls).toBeUndefined();
     });
@@ -219,7 +222,7 @@ describe("Tool tracking helpers", () => {
         content: [{ type: "text" as const, text: "Hello!" }],
       };
 
-      const messages = extractAnthropicMessages(response);
+      const messages = extractAnthropicMessages(response as any);
 
       expect(messages).toHaveLength(1);
       expect(messages[0]).toEqual({
@@ -241,7 +244,7 @@ describe("Tool tracking helpers", () => {
         ],
       };
 
-      const messages = extractAnthropicMessages(response);
+      const messages = extractAnthropicMessages(response as any);
 
       expect(messages).toHaveLength(1);
       expect(messages[0].role).toBe("assistant");
@@ -267,7 +270,7 @@ describe("Tool tracking helpers", () => {
         ],
       };
 
-      const messages = extractAnthropicMessages(response);
+      const messages = extractAnthropicMessages(response as any);
 
       expect(messages).toHaveLength(1);
       expect(messages[0].content).toBe("Let me check the weather.");
@@ -283,7 +286,7 @@ describe("Tool tracking helpers", () => {
         ],
       };
 
-      const messages = extractAnthropicMessages(response);
+      const messages = extractAnthropicMessages(response as any);
 
       expect(messages[0].content).toBe("First part.\nSecond part.");
     });
@@ -307,7 +310,7 @@ describe("Tool tracking helpers", () => {
         ],
       };
 
-      const messages = extractAnthropicMessages(response);
+      const messages = extractAnthropicMessages(response as any);
 
       expect(messages[0].tool_calls).toHaveLength(2);
       expect(messages[0].tool_calls![0].name).toBe("get_weather");
@@ -320,19 +323,22 @@ describe("Tool tracking helpers", () => {
   });
 
   describe("extractGeminiMessages / fromGemini", () => {
-    it("should extract a simple text message", () => {
-      const response = {
-        candidates: [
-          {
-            content: {
-              role: "model",
-              parts: [{ text: "Hello!" }],
-            },
-          },
-        ],
-      };
+    // Helper to wrap candidates in the GenerateContentResult structure
+    const wrapGeminiResponse = (candidates: any[]) => ({
+      response: { candidates },
+    });
 
-      const messages = extractGeminiMessages(response);
+    it("should extract a simple text message", () => {
+      const response = wrapGeminiResponse([
+        {
+          content: {
+            role: "model",
+            parts: [{ text: "Hello!" }],
+          },
+        },
+      ]);
+
+      const messages = extractGeminiMessages(response as any);
 
       expect(messages).toHaveLength(1);
       expect(messages[0]).toEqual({
@@ -342,25 +348,23 @@ describe("Tool tracking helpers", () => {
     });
 
     it("should extract function calls", () => {
-      const response = {
-        candidates: [
-          {
-            content: {
-              role: "model",
-              parts: [
-                {
-                  functionCall: {
-                    name: "get_weather",
-                    args: { location: "San Francisco" },
-                  },
+      const response = wrapGeminiResponse([
+        {
+          content: {
+            role: "model",
+            parts: [
+              {
+                functionCall: {
+                  name: "get_weather",
+                  args: { location: "San Francisco" },
                 },
-              ],
-            },
+              },
+            ],
           },
-        ],
-      };
+        },
+      ]);
 
-      const messages = extractGeminiMessages(response);
+      const messages = extractGeminiMessages(response as any);
 
       expect(messages).toHaveLength(1);
       expect(messages[0].role).toBe("assistant");
@@ -372,26 +376,24 @@ describe("Tool tracking helpers", () => {
     });
 
     it("should combine text and function calls", () => {
-      const response = {
-        candidates: [
-          {
-            content: {
-              role: "model",
-              parts: [
-                { text: "Let me check." },
-                {
-                  functionCall: {
-                    name: "get_weather",
-                    args: { location: "SF" },
-                  },
+      const response = wrapGeminiResponse([
+        {
+          content: {
+            role: "model",
+            parts: [
+              { text: "Let me check." },
+              {
+                functionCall: {
+                  name: "get_weather",
+                  args: { location: "SF" },
                 },
-              ],
-            },
+              },
+            ],
           },
-        ],
-      };
+        },
+      ]);
 
-      const messages = extractGeminiMessages(response);
+      const messages = extractGeminiMessages(response as any);
 
       expect(messages).toHaveLength(1);
       expect(messages[0].content).toBe("Let me check.");
@@ -399,43 +401,41 @@ describe("Tool tracking helpers", () => {
     });
 
     it("should handle empty candidates", () => {
-      const response = { candidates: [] };
-      const messages = extractGeminiMessages(response);
+      const response = wrapGeminiResponse([]);
+      const messages = extractGeminiMessages(response as any);
       expect(messages).toHaveLength(0);
     });
 
     it("should handle undefined candidates", () => {
-      const response = {};
+      const response = { response: {} };
       const messages = extractGeminiMessages(response as any);
       expect(messages).toHaveLength(0);
     });
 
     it("should handle multiple function calls", () => {
-      const response = {
-        candidates: [
-          {
-            content: {
-              role: "model",
-              parts: [
-                {
-                  functionCall: {
-                    name: "get_weather",
-                    args: { location: "SF" },
-                  },
+      const response = wrapGeminiResponse([
+        {
+          content: {
+            role: "model",
+            parts: [
+              {
+                functionCall: {
+                  name: "get_weather",
+                  args: { location: "SF" },
                 },
-                {
-                  functionCall: {
-                    name: "get_time",
-                    args: { timezone: "PST" },
-                  },
+              },
+              {
+                functionCall: {
+                  name: "get_time",
+                  args: { timezone: "PST" },
                 },
-              ],
-            },
+              },
+            ],
           },
-        ],
-      };
+        },
+      ]);
 
-      const messages = extractGeminiMessages(response);
+      const messages = extractGeminiMessages(response as any);
 
       expect(messages[0].tool_calls).toHaveLength(2);
       expect(messages[0].tool_calls![0].name).toBe("get_weather");

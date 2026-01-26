@@ -14,7 +14,16 @@ import {
   TrackConversationOptions,
   TrackRequest,
   TrackResponse,
+  TrackInput,
 } from "./types";
+import {
+  extractOpenAIMessages,
+  extractAnthropicMessages,
+  extractGeminiMessages,
+  normalizeOpenAIMessages,
+  normalizeAnthropicMessages,
+  normalizeGeminiContents,
+} from "./tools";
 import {
   evaluateAgent,
   evaluateEntity,
@@ -231,12 +240,42 @@ export class Hone implements HoneClient {
 
   async track(
     id: string,
-    messages: Message[],
+    input: TrackInput,
     options: TrackConversationOptions,
   ): Promise<void> {
+    let normalizedMessages: Message[];
+
+    if (Array.isArray(input)) {
+      // Already in normalized format
+      normalizedMessages = input;
+    } else if (input.provider === "openai") {
+      // OpenAI format: normalize input messages + extract response
+      const inputMessages = normalizeOpenAIMessages(input.messages);
+      const responseMessages = extractOpenAIMessages(input.response);
+      normalizedMessages = [...inputMessages, ...responseMessages];
+    } else if (input.provider === "anthropic") {
+      // Anthropic format: add system + normalize input messages + extract response
+      const systemMessage: Message[] = input.system
+        ? [{ role: "system", content: input.system }]
+        : [];
+      const inputMessages = normalizeAnthropicMessages(input.messages);
+      const responseMessages = extractAnthropicMessages(input.response);
+      normalizedMessages = [...systemMessage, ...inputMessages, ...responseMessages];
+    } else if (input.provider === "gemini") {
+      // Gemini format: add system + normalize contents + extract response
+      const systemMessage: Message[] = input.systemInstruction
+        ? [{ role: "system", content: input.systemInstruction }]
+        : [];
+      const inputMessages = normalizeGeminiContents(input.contents);
+      const responseMessages = extractGeminiMessages(input.response);
+      normalizedMessages = [...systemMessage, ...inputMessages, ...responseMessages];
+    } else {
+      throw new Error("Invalid track input: must be Message[] or provider-specific input");
+    }
+
     await this.makeRequest<TrackRequest, TrackResponse>("/insert_runs", "POST", {
       id,
-      messages,
+      messages: normalizedMessages,
       sessionId: options.sessionId,
       timestamp: new Date().toISOString(),
     });

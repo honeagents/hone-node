@@ -19,6 +19,12 @@ export type {
   Hyperparameters,
   Message,
   ToolCall,
+  // Provider-specific tracking inputs
+  TrackInput,
+  TrackOpenAIInput,
+  TrackAnthropicInput,
+  TrackGeminiInput,
+  TrackConversationOptions,
   // Backwards compatibility
   HonePrompt,
   GetPromptOptions,
@@ -33,6 +39,10 @@ export {
   extractOpenAIMessages,
   extractAnthropicMessages,
   extractGeminiMessages,
+  // Input normalizers (for manual use)
+  normalizeOpenAIMessages,
+  normalizeAnthropicMessages,
+  normalizeGeminiContents,
   // Short aliases
   toolResult,
   fromOpenAI,
