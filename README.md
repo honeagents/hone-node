@@ -381,20 +381,6 @@ getProviderDisplayName("amazon-bedrock"); // "Amazon Bedrock"
 | OpenAI             | `openai`          | OpenAI              |
 | Anthropic          | `anthropic`       | Anthropic           |
 | Google AI          | `google`          | Google AI           |
-| Google Vertex AI   | `google-vertex`   | Google Vertex AI    |
-| Azure OpenAI       | `azure`           | Azure OpenAI        |
-| xAI                | `xai`             | xAI                 |
-| Mistral AI         | `mistral`         | Mistral AI          |
-| Cohere             | `cohere`          | Cohere              |
-| Groq               | `groq`            | Groq                |
-| Together.ai        | `togetherai`      | Together.ai         |
-| Fireworks          | `fireworks`       | Fireworks           |
-| DeepInfra          | `deepinfra`       | DeepInfra           |
-| DeepSeek           | `deepseek`        | DeepSeek            |
-| Cerebras           | `cerebras`        | Cerebras            |
-| Perplexity         | `perplexity`      | Perplexity          |
-| Amazon Bedrock     | `amazon-bedrock`  | Amazon Bedrock      |
-| Baseten            | `baseten`         | Baseten             |
 
 ## Tool Tracking Helpers
 
