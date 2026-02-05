@@ -295,6 +295,22 @@ describe("utils", () => {
       expect(result).toBe("Hello, {{name}}!");
     });
 
+    it("should leave unmatched placeholders unchanged with partial params", () => {
+      const result = insertParamsIntoPrompt(
+        "{{greeting}}, {{name}}! Your role is {{role}}.",
+        { greeting: "Hello" },
+      );
+      expect(result).toBe("Hello, {{name}}! Your role is {{role}}.");
+    });
+
+    it("should leave all placeholders unchanged when no params match", () => {
+      const result = insertParamsIntoPrompt(
+        "{{agent_name}} uses {{model}} with {{provider}}",
+        { unrelated_key: "value", another_key: "other" },
+      );
+      expect(result).toBe("{{agent_name}} uses {{model}} with {{provider}}");
+    });
+
     it("should handle prompts with no placeholders", () => {
       const result = insertParamsIntoPrompt("Hello, World!", {
         name: "Alice",
