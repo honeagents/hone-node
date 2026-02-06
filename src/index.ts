@@ -13,9 +13,9 @@ export type {
   GetAgentOptions,
   AgentResult,
   AgentNode,
-  AgentRequest,
-  AgentResponse,
-  AgentResponseItem,
+  EntityRequest,
+  EntityResponse,
+  EntityResponseItem,
   Hyperparameters,
   Message,
   ToolCall,
@@ -25,12 +25,6 @@ export type {
   TrackAnthropicInput,
   TrackGeminiInput,
   TrackConversationOptions,
-  // Backwards compatibility
-  HonePrompt,
-  GetPromptOptions,
-  PromptNode,
-  PromptRequest,
-  PromptResponse,
 } from "./types";
 // Tool tracking helpers
 export {
@@ -52,14 +46,8 @@ export {
 export {
   getAgentNode,
   evaluateAgent,
-  formatAgentRequest,
+  formatEntityRequest,
   updateAgentNodes,
   traverseAgentNode,
   insertParamsIntoPrompt,
-  // Backwards compatibility
-  getPromptNode,
-  evaluatePrompt,
-  formatPromptRequest,
-  updatePromptNodes,
-  traversePromptNode,
 } from "./agent";

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hone, createHoneClient } from "./client";
-import { HoneConfig, Message, AgentResponse } from "./types";
+import { HoneConfig, Message, EntityResponse } from "./types";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -74,7 +74,7 @@ describe("Hone Client", () => {
 
   describe("agent", () => {
     it("should fetch agent successfully and return evaluated result with hyperparameters", async () => {
-      const mockResponse: AgentResponse = {
+      const mockResponse: EntityResponse = {
         greeting: {
           prompt: "Hello, {{userName}}! Welcome.",
           model: "gpt-4",
@@ -155,7 +155,7 @@ describe("Hone Client", () => {
     });
 
     it("should handle nested agents", async () => {
-      const mockResponse: AgentResponse = {
+      const mockResponse: EntityResponse = {
         main: { prompt: "Welcome: {{intro}}", model: "gpt-4", provider: "openai", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [], tools: [] },
         intro: { prompt: "Hello, {{userName}}!", model: "gpt-4", provider: "openai", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [], tools: [] },
       };
@@ -185,7 +185,7 @@ describe("Hone Client", () => {
     });
 
     it("should handle agent with no parameters", async () => {
-      const mockResponse: AgentResponse = {
+      const mockResponse: EntityResponse = {
         static: { prompt: "This is a static prompt", model: "claude-3", provider: "anthropic", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [], tools: [] },
       };
 
@@ -316,7 +316,7 @@ describe("Hone Client", () => {
 
     it("should return null for missing hyperparameters from API", async () => {
       // API returns only model and temperature, others are null
-      const mockResponse: AgentResponse = {
+      const mockResponse: EntityResponse = {
         test: {
           prompt: "Hello",
           model: "gpt-4",
@@ -355,7 +355,7 @@ describe("Hone Client", () => {
 
     it("should prefer API hyperparameters over SDK defaults", async () => {
       // API returns different values than SDK defaults
-      const mockResponse: AgentResponse = {
+      const mockResponse: EntityResponse = {
         test: {
           prompt: "Hello",
           model: "claude-3-opus",
@@ -401,7 +401,7 @@ describe("Hone Client", () => {
 
     it("should use SDK defaults when API returns null hyperparameters", async () => {
       // API explicitly returns null for hyperparameters (except model/provider which come from SDK)
-      const mockResponse: AgentResponse = {
+      const mockResponse: EntityResponse = {
         test: {
           prompt: "Hello",
           model: null,
@@ -443,7 +443,7 @@ describe("Hone Client", () => {
     });
 
     it("should return SDK model/provider even when API returns null", async () => {
-      const mockResponse: AgentResponse = {
+      const mockResponse: EntityResponse = {
         test: {
           prompt: "Hello",
           model: null,

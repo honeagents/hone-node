@@ -4,7 +4,7 @@ import {
   evaluateAgent,
   insertParamsIntoPrompt,
   traverseAgentNode,
-  formatAgentRequest,
+  formatEntityRequest,
   updateAgentNodes,
 } from "./agent";
 import { AgentNode, GetAgentOptions } from "./types";
@@ -565,7 +565,7 @@ describe("utils", () => {
     });
   });
 
-  describe("formatAgentRequest", () => {
+  describe("formatEntityRequest", () => {
     it("should format a simple agent node", () => {
       const node: AgentNode = {
         id: "greeting",
@@ -577,10 +577,11 @@ describe("utils", () => {
         children: [],
       };
 
-      const request = formatAgentRequest(node);
+      const request = formatEntityRequest(node);
 
-      expect(request.agents.rootId).toBe("greeting");
-      expect(request.agents.map["greeting"]).toEqual({
+      expect(request.entities.rootId).toBe("greeting");
+      expect(request.entities.rootType).toBe("agent");
+      expect(request.entities.map["greeting"]).toEqual({
         id: "greeting",
         type: "agent",
         name: "greeting-agent",
@@ -588,6 +589,7 @@ describe("utils", () => {
         prompt: "Hello, {{userName}}!",
         paramKeys: ["userName"],
         childrenIds: [],
+        childrenTypes: [],
         model: undefined,
         provider: undefined,
         temperature: undefined,
@@ -617,10 +619,11 @@ describe("utils", () => {
         ],
       };
 
-      const request = formatAgentRequest(node);
+      const request = formatEntityRequest(node);
 
-      expect(request.agents.rootId).toBe("main");
-      expect(request.agents.map["main"]).toEqual({
+      expect(request.entities.rootId).toBe("main");
+      expect(request.entities.rootType).toBe("agent");
+      expect(request.entities.map["main"]).toEqual({
         id: "main",
         type: "agent",
         name: undefined,
@@ -628,6 +631,7 @@ describe("utils", () => {
         prompt: "Intro: {{introduction}}",
         paramKeys: ["introduction"],
         childrenIds: ["introduction"],
+        childrenTypes: ["agent"],
         model: undefined,
         provider: undefined,
         temperature: undefined,
@@ -638,7 +642,7 @@ describe("utils", () => {
         stopSequences: undefined,
         tools: undefined,
       });
-      expect(request.agents.map["introduction"]).toEqual({
+      expect(request.entities.map["introduction"]).toEqual({
         id: "introduction",
         type: "agent",
         name: undefined,
@@ -646,6 +650,7 @@ describe("utils", () => {
         prompt: "Hello, {{userName}}!",
         paramKeys: ["userName"],
         childrenIds: [],
+        childrenTypes: [],
         model: undefined,
         provider: undefined,
         temperature: undefined,
@@ -675,16 +680,16 @@ describe("utils", () => {
         stopSequences: ["END"],
       };
 
-      const request = formatAgentRequest(node);
+      const request = formatEntityRequest(node);
 
-      expect(request.agents.map["greeting"].model).toBe("gpt-4");
-      expect(request.agents.map["greeting"].provider).toBe("openai");
-      expect(request.agents.map["greeting"].temperature).toBe(0.7);
-      expect(request.agents.map["greeting"].maxTokens).toBe(1000);
-      expect(request.agents.map["greeting"].topP).toBe(0.9);
-      expect(request.agents.map["greeting"].frequencyPenalty).toBe(0.5);
-      expect(request.agents.map["greeting"].presencePenalty).toBe(0.3);
-      expect(request.agents.map["greeting"].stopSequences).toEqual(["END"]);
+      expect(request.entities.map["greeting"].model).toBe("gpt-4");
+      expect(request.entities.map["greeting"].provider).toBe("openai");
+      expect(request.entities.map["greeting"].temperature).toBe(0.7);
+      expect(request.entities.map["greeting"].maxTokens).toBe(1000);
+      expect(request.entities.map["greeting"].topP).toBe(0.9);
+      expect(request.entities.map["greeting"].frequencyPenalty).toBe(0.5);
+      expect(request.entities.map["greeting"].presencePenalty).toBe(0.3);
+      expect(request.entities.map["greeting"].stopSequences).toEqual(["END"]);
     });
 
     it("should format deeply nested structure", () => {
@@ -712,13 +717,14 @@ describe("utils", () => {
         ],
       };
 
-      const request = formatAgentRequest(node);
+      const request = formatEntityRequest(node);
 
-      expect(request.agents.rootId).toBe("doc");
-      expect(Object.keys(request.agents.map)).toHaveLength(3);
-      expect(request.agents.map["doc"].childrenIds).toEqual(["section"]);
-      expect(request.agents.map["section"].childrenIds).toEqual(["paragraph"]);
-      expect(request.agents.map["paragraph"].paramKeys).toEqual(["text"]);
+      expect(request.entities.rootId).toBe("doc");
+      expect(request.entities.rootType).toBe("agent");
+      expect(Object.keys(request.entities.map)).toHaveLength(3);
+      expect(request.entities.map["doc"].childrenIds).toEqual(["section"]);
+      expect(request.entities.map["section"].childrenIds).toEqual(["paragraph"]);
+      expect(request.entities.map["paragraph"].paramKeys).toEqual(["text"]);
     });
 
     it("should handle multiple children", () => {
@@ -752,14 +758,19 @@ describe("utils", () => {
         ],
       };
 
-      const request = formatAgentRequest(node);
+      const request = formatEntityRequest(node);
 
-      expect(request.agents.map["document"].childrenIds).toEqual([
+      expect(request.entities.map["document"].childrenIds).toEqual([
         "header",
         "body",
         "footer",
       ]);
-      expect(Object.keys(request.agents.map)).toHaveLength(4);
+      expect(request.entities.map["document"].childrenTypes).toEqual([
+        "agent",
+        "agent",
+        "agent",
+      ]);
+      expect(Object.keys(request.entities.map)).toHaveLength(4);
     });
   });
 

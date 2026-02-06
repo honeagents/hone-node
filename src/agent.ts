@@ -6,8 +6,6 @@ import {
   ToolNode,
   TextPromptNode,
   EntityNode,
-  AgentRequest,
-  AgentRequestItem,
   EntityRequest,
   EntityRequestItem,
   SimpleParams,
@@ -386,51 +384,6 @@ export function formatEntityRequest(node: EntityNode): EntityRequest {
   };
 }
 
-/**
- * Formats an AgentNode into an AgentRequest suitable for the /sync_agents API.
- * (Backwards compatible format)
- */
-export function formatAgentRequest(node: AgentNode): AgentRequest {
-  function formatNode(node: AgentNode): AgentRequestItem {
-    const paramKeys = [
-      ...Object.keys(node.params),
-      ...node.children.map((child) => child.id),
-    ];
-    return {
-      id: node.id,
-      type: node.type,
-      name: node.name,
-      majorVersion: node.majorVersion,
-      prompt: node.prompt,
-      paramKeys,
-      childrenIds: node.children.map((child) => child.id),
-      // Hyperparameters
-      model: node.model,
-      provider: node.provider,
-      temperature: node.temperature,
-      maxTokens: node.maxTokens,
-      topP: node.topP,
-      frequencyPenalty: node.frequencyPenalty,
-      presencePenalty: node.presencePenalty,
-      stopSequences: node.stopSequences,
-      tools: node.tools,
-    };
-  }
-
-  const map: Record<string, AgentRequestItem> = {};
-
-  traverseAgentNode(node, (currentNode) => {
-    map[currentNode.id] = formatNode(currentNode as AgentNode);
-  });
-
-  return {
-    agents: {
-      rootId: node.id,
-      map,
-    },
-  };
-}
-
 // =============================================================================
 // Node Updates
 // =============================================================================
@@ -463,21 +416,3 @@ export function updateAgentNodes(
   ) as AgentNode;
 }
 
-// =============================================================================
-// Backwards Compatibility Aliases (deprecated)
-// =============================================================================
-
-/** @deprecated Use getAgentNode instead */
-export const getPromptNode = getAgentNode;
-
-/** @deprecated Use evaluateAgent instead */
-export const evaluatePrompt = evaluateAgent;
-
-/** @deprecated Use traverseAgentNode instead */
-export const traversePromptNode = traverseAgentNode;
-
-/** @deprecated Use formatAgentRequest instead */
-export const formatPromptRequest = formatAgentRequest;
-
-/** @deprecated Use updateAgentNodes instead */
-export const updatePromptNodes = updateAgentNodes;
