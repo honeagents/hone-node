@@ -118,13 +118,13 @@ console.log(tool.prompt); // "Search the web for: latest news"
 Fetches a reusable text prompt by ID.
 
 ```typescript
-const prompt = await hone.prompt("tone-guidelines", {
+const text = await hone.prompt("tone-guidelines", {
   defaultPrompt: "Always be friendly and professional.",
   majorVersion: 1,
 });
 
-// Returns TextPromptResult
-console.log(prompt.text); // "Always be friendly and professional."
+// Returns string directly
+console.log(text); // "Always be friendly and professional."
 ```
 
 ### `hone.track(id, input, options)`
@@ -447,8 +447,8 @@ import type {
   GetToolOptions,
 
   // Prompt types
-  TextPromptResult,
   GetTextPromptOptions,
+  // Note: hone.prompt() returns string directly (not TextPromptResult)
 
   // Message types
   Message,

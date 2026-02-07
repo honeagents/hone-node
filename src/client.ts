@@ -8,7 +8,6 @@ import {
   Message,
   AgentResult,
   ToolResult,
-  TextPromptResult,
   EntityV2Request,
   EntityV2Response,
   TrackConversationOptions,
@@ -151,7 +150,7 @@ export class Hone implements HoneClient {
     };
   }
 
-  async prompt(id: string, options: GetTextPromptOptions): Promise<TextPromptResult> {
+  async prompt(id: string, options: GetTextPromptOptions): Promise<string> {
     const node = getTextPromptNode(id, options);
 
     // Format request using nested structure
@@ -164,10 +163,8 @@ export class Hone implements HoneClient {
       request
     );
 
-    // Response includes evaluated prompt - no client-side evaluation needed
-    return {
-      text: response.evaluatedPrompt,
-    };
+    // Return the evaluated text directly
+    return response.evaluatedPrompt;
   }
 
   async track(

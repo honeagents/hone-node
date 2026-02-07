@@ -255,8 +255,7 @@ export type GetTextPromptOptions = {
 };
 
 /**
- * The result returned by hone.prompt()
- * Contains the evaluated text with parameters substituted.
+ * @deprecated Use string directly - hone.prompt() now returns Promise<string>
  */
 export type TextPromptResult = {
   /** The fully evaluated text with all parameters substituted */
@@ -266,7 +265,7 @@ export type TextPromptResult = {
 export type HoneTextPrompt = (
   id: string,
   options: GetTextPromptOptions
-) => Promise<TextPromptResult>;
+) => Promise<string>;
 
 // =============================================================================
 // Tracking Types
@@ -400,7 +399,7 @@ export type HoneClient = {
    * Fetches and evaluates a text prompt by its ID with the given options.
    * @param id The unique identifier for the prompt.
    * @param options Options for fetching and evaluating the prompt.
-   * @returns A Promise that resolves to a TextPromptResult containing the evaluated text.
+   * @returns A Promise that resolves to the evaluated text string.
    */
   prompt: HoneTextPrompt;
   /**
