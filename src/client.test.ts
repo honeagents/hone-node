@@ -116,7 +116,7 @@ describe("Hone Client", () => {
       expect(result.stopSequences).toEqual(["END"]);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://honeagents.ai/api/v2/entities",
+        "https://honeagents.ai/api/evaluate",
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
@@ -143,7 +143,7 @@ describe("Hone Client", () => {
       ).rejects.toThrow("Network error");
     });
 
-    it("should handle nested agents (V2 evaluates server-side)", async () => {
+    it("should handle nested agents (evaluates server-side)", async () => {
       const mockResponse: EntityV2Response = {
         evaluatedPrompt: "Welcome: Hello, Charlie!",
         template: "Welcome: {{intro}}",

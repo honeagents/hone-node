@@ -495,7 +495,7 @@ export type EntityV2RequestData = {
 };
 
 /**
- * V2 Entity Response - evaluated result from /api/v2/entities.
+ * Entity Response - evaluated result from /api/evaluate.
  */
 export type EntityV2Response = {
   evaluatedPrompt: string;

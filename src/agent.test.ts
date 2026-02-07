@@ -215,7 +215,7 @@ describe("utils", () => {
     });
   });
 
-  // Note: Parameter validation and evaluation is now handled server-side by the V2 API
+  // Note: Parameter validation and evaluation is handled server-side
   // The following functions were removed: insertParamsIntoPrompt, evaluateAgent, traverseAgentNode, formatEntityRequest
 
   describe("updateAgentNodes", () => {

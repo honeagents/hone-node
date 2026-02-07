@@ -97,7 +97,7 @@ export class Hone implements HoneClient {
   ): Promise<AgentResult<TExtra>> {
     const node = getAgentNode(id, options);
 
-    // Format request using V2 nested structure
+    // Format request using nested structure
     const request = formatEntityV2Request(node);
 
     // Include extra data in the request
@@ -105,9 +105,9 @@ export class Hone implements HoneClient {
       Object.assign(request.data, options.extra);
     }
 
-    // Call V2 endpoint - server handles evaluation
+    // Call evaluate endpoint - server handles evaluation
     const response = await this.makeRequest<EntityV2Request, EntityV2Response>(
-      "/v2/entities",
+      "/evaluate",
       "POST",
       request
     );
@@ -116,7 +116,7 @@ export class Hone implements HoneClient {
     const { model, provider, temperature, maxTokens, topP, frequencyPenalty, presencePenalty, stopSequences, tools, ...extra } = response.data;
     const extraData = extra as TExtra;
 
-    // V2 response includes evaluated prompt - no client-side evaluation needed
+    // Response includes evaluated prompt - no client-side evaluation needed
     return {
       systemPrompt: response.evaluatedPrompt,
       model: model ?? options.model,
@@ -135,17 +135,17 @@ export class Hone implements HoneClient {
   async tool(id: string, options: GetToolOptions): Promise<ToolResult> {
     const node = getToolNode(id, options);
 
-    // Format request using V2 nested structure
+    // Format request using nested structure
     const request = formatEntityV2Request(node);
 
-    // Call V2 endpoint - server handles evaluation
+    // Call evaluate endpoint - server handles evaluation
     const response = await this.makeRequest<EntityV2Request, EntityV2Response>(
-      "/v2/entities",
+      "/evaluate",
       "POST",
       request
     );
 
-    // V2 response includes evaluated prompt - no client-side evaluation needed
+    // Response includes evaluated prompt - no client-side evaluation needed
     return {
       prompt: response.evaluatedPrompt,
     };
@@ -154,17 +154,17 @@ export class Hone implements HoneClient {
   async prompt(id: string, options: GetTextPromptOptions): Promise<TextPromptResult> {
     const node = getTextPromptNode(id, options);
 
-    // Format request using V2 nested structure
+    // Format request using nested structure
     const request = formatEntityV2Request(node);
 
-    // Call V2 endpoint - server handles evaluation
+    // Call evaluate endpoint - server handles evaluation
     const response = await this.makeRequest<EntityV2Request, EntityV2Response>(
-      "/v2/entities",
+      "/evaluate",
       "POST",
       request
     );
 
-    // V2 response includes evaluated prompt - no client-side evaluation needed
+    // Response includes evaluated prompt - no client-side evaluation needed
     return {
       text: response.evaluatedPrompt,
     };
