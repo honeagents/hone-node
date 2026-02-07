@@ -6,8 +6,7 @@ import {
   ToolNode,
   TextPromptNode,
   EntityNode,
-  EntityRequest,
-  EntityRequestItem,
+  EntityV2Request,
   SimpleParams,
   EntityType,
   ParamsValue,
@@ -195,193 +194,56 @@ function getEntityNode(
 }
 
 // =============================================================================
-// Evaluation
-// =============================================================================
-
-/**
- * Evaluates an EntityNode by recursively inserting parameters and nested entities.
- *
- * @param node The root EntityNode to evaluate.
- * @returns The fully evaluated prompt string.
- * @throws Error if any placeholders in the prompt don't have corresponding parameter values
- */
-export function evaluateEntity(node: EntityNode): string {
-  const evaluated = new Map<string, string>();
-
-  function evaluate(node: EntityNode): string {
-    if (evaluated.has(node.id)) {
-      return evaluated.get(node.id)!;
-    }
-
-    const params: SimpleParams = { ...node.params };
-
-    // Evaluate all children first (depth-first)
-    for (const child of node.children) {
-      params[child.id] = evaluate(child);
-    }
-
-    // Validate that all placeholders have corresponding parameters
-    validateEntityParams(node.prompt, params, node.id, node.type);
-
-    // Insert evaluated children into this prompt
-    const result = insertParamsIntoPrompt(node.prompt, params);
-    evaluated.set(node.id, result);
-    return result;
-  }
-
-  return evaluate(node);
-}
-
-/**
- * Evaluates an AgentNode (alias for evaluateEntity for backwards compatibility)
- */
-export function evaluateAgent(node: AgentNode): string {
-  return evaluateEntity(node);
-}
-
-/**
- * Evaluates a ToolNode (alias for evaluateEntity)
- */
-export function evaluateTool(node: ToolNode): string {
-  return evaluateEntity(node);
-}
-
-/**
- * Evaluates a TextPromptNode (alias for evaluateEntity)
- */
-export function evaluateTextPrompt(node: TextPromptNode): string {
-  return evaluateEntity(node);
-}
-
-/**
- * Validates that all placeholders in a prompt have corresponding parameter values.
- */
-function validateEntityParams(
-  prompt: string,
-  params: SimpleParams,
-  nodeId: string,
-  type: EntityType
-): void {
-  const placeholderRegex = /\{\{(\w+)\}\}/g;
-  const matches = prompt.matchAll(placeholderRegex);
-  const missingParams: string[] = [];
-
-  for (const match of matches) {
-    const paramName = match[1];
-    if (!(paramName in params)) {
-      missingParams.push(paramName);
-    }
-  }
-
-  if (missingParams.length > 0) {
-    const uniqueMissing = [...new Set(missingParams)];
-    throw new Error(
-      `Missing parameter${uniqueMissing.length > 1 ? "s" : ""} in ${type} "${nodeId}": ${uniqueMissing.join(", ")}`
-    );
-  }
-}
-
-/**
- * Inserts parameters into a prompt template.
- *
- * @param prompt The prompt template containing placeholders in the form `{{variableName}}`.
- * @param params An object mapping variable names to their replacement values.
- * @returns The prompt with all placeholders replaced by their corresponding values.
- */
-export function insertParamsIntoPrompt(
-  prompt: string,
-  params?: SimpleParams
-): string {
-  if (!params) return prompt;
-
-  let result = prompt;
-  for (const [key, value] of Object.entries(params)) {
-    result = result.replace(new RegExp(`{{${key}}}`, "g"), value);
-  }
-  return result;
-}
-
-// =============================================================================
-// Traversal
-// =============================================================================
-
-/**
- * Traverses an EntityNode tree and applies a callback to each node.
- */
-export function traverseEntityNode(
-  node: EntityNode,
-  callback: (node: EntityNode, parentId: string | null) => void,
-  parentId: string | null = null
-) {
-  callback(node, parentId);
-  for (const child of node.children) {
-    traverseEntityNode(child, callback, node.id);
-  }
-}
-
-/**
- * Traverses an AgentNode tree (alias for backwards compatibility)
- */
-export function traverseAgentNode(
-  node: AgentNode,
-  callback: (node: AgentNode, parentId: string | null) => void,
-  parentId: string | null = null
-) {
-  traverseEntityNode(
-    node,
-    callback as (node: EntityNode, parentId: string | null) => void,
-    parentId
-  );
-}
-
-// =============================================================================
 // Request Formatting
 // =============================================================================
 
 /**
- * Formats an EntityNode into an EntityRequest suitable for the /sync_entities API.
+ * Formats an EntityNode into an EntityV2Request suitable for the /api/v2/entities API.
+ * V2 uses nested structure with param values (not just keys).
  */
-export function formatEntityRequest(node: EntityNode): EntityRequest {
-  function formatNode(node: EntityNode): EntityRequestItem {
-    const paramKeys = [
-      ...Object.keys(node.params),
-      ...node.children.map((child) => child.id),
-    ];
-    return {
-      id: node.id,
-      type: node.type,
-      name: node.name,
-      majorVersion: node.majorVersion,
-      prompt: node.prompt,
-      paramKeys,
-      childrenIds: node.children.map((child) => child.id),
-      childrenTypes: node.children.map((child) => child.type),
-      // Hyperparameters (only for agents)
-      model: node.model,
-      provider: node.provider,
-      temperature: node.temperature,
-      maxTokens: node.maxTokens,
-      topP: node.topP,
-      frequencyPenalty: node.frequencyPenalty,
-      presencePenalty: node.presencePenalty,
-      stopSequences: node.stopSequences,
-      tools: node.tools,
+export function formatEntityV2Request(node: EntityNode): EntityV2Request {
+  function formatNode(n: EntityNode): EntityV2Request {
+    // Build params: string values + recursively formatted children
+    const params: Record<string, string | EntityV2Request> = {};
+
+    // Add string params
+    for (const [key, value] of Object.entries(n.params)) {
+      params[key] = value;
+    }
+
+    // Add children as nested entities
+    for (const child of n.children) {
+      params[child.id] = formatNode(child);
+    }
+
+    const request: EntityV2Request = {
+      id: n.id,
+      type: n.type,
+      prompt: n.prompt,
+      params: Object.keys(params).length > 0 ? params : undefined,
+      majorVersion: n.majorVersion,
+      name: n.name,
     };
+
+    // Add data for agents (hyperparameters)
+    if (n.type === "agent") {
+      request.data = {
+        model: n.model,
+        provider: n.provider,
+        temperature: n.temperature,
+        maxTokens: n.maxTokens,
+        topP: n.topP,
+        frequencyPenalty: n.frequencyPenalty,
+        presencePenalty: n.presencePenalty,
+        stopSequences: n.stopSequences,
+        tools: n.tools,
+      };
+    }
+
+    return request;
   }
 
-  const map: Record<string, EntityRequestItem> = {};
-
-  traverseEntityNode(node, (currentNode) => {
-    map[currentNode.id] = formatNode(currentNode);
-  });
-
-  return {
-    entities: {
-      rootId: node.id,
-      rootType: node.type,
-      map,
-    },
-  };
+  return formatNode(node);
 }
 
 // =============================================================================

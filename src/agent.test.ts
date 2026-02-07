@@ -1,13 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
   getAgentNode,
-  evaluateAgent,
-  insertParamsIntoPrompt,
-  traverseAgentNode,
-  formatEntityRequest,
+  formatEntityV2Request,
   updateAgentNodes,
 } from "./agent";
-import { AgentNode, GetAgentOptions } from "./types";
+import { AgentNode, EntityNode, GetAgentOptions } from "./types";
 
 describe("utils", () => {
   describe("getAgentNode", () => {
@@ -216,563 +213,10 @@ describe("utils", () => {
 
       expect(() => getAgentNode("a", options)).toThrow();
     });
-
-    it("should throw an error when agent has placeholders without matching parameters", () => {
-      const options: GetAgentOptions = {
-        model: "gpt-4",
-        provider: "openai",
-        defaultPrompt: "Hello {{name}}, your role is {{role}}",
-        params: {
-          name: "Alice",
-          // 'role' is missing
-        },
-      };
-
-      const node = getAgentNode("greeting", options);
-
-      // Should throw when evaluating because 'role' placeholder has no value
-      expect(() => evaluateAgent(node)).toThrow(/missing parameter.*role/i);
-    });
-
-    it("should throw an error listing all missing parameters", () => {
-      const options: GetAgentOptions = {
-        model: "gpt-4",
-        provider: "openai",
-        defaultPrompt: "{{greeting}} {{name}}, you are {{role}} in {{location}}",
-        params: {
-          name: "Bob",
-          // Missing: greeting, role, location
-        },
-      };
-
-      const node = getAgentNode("test", options);
-
-      expect(() => evaluateAgent(node)).toThrow(/missing parameter/i);
-    });
   });
 
-  describe("insertParamsIntoPrompt", () => {
-    it("should replace single placeholder", () => {
-      const result = insertParamsIntoPrompt("Hello, {{name}}!", {
-        name: "Alice",
-      });
-      expect(result).toBe("Hello, Alice!");
-    });
-
-    it("should replace multiple placeholders", () => {
-      const result = insertParamsIntoPrompt("{{greeting}} {{name}}, {{action}}!", {
-        greeting: "Hello",
-        name: "Bob",
-        action: "welcome",
-      });
-      expect(result).toBe("Hello Bob, welcome!");
-    });
-
-    it("should replace multiple occurrences of the same placeholder", () => {
-      const result = insertParamsIntoPrompt(
-        "{{name}} said: 'Hello {{name}}'",
-        { name: "Charlie" },
-      );
-      expect(result).toBe("Charlie said: 'Hello Charlie'");
-    });
-
-    it("should return original prompt when no params provided", () => {
-      const prompt = "Hello, {{name}}!";
-      const result = insertParamsIntoPrompt(prompt);
-      expect(result).toBe(prompt);
-    });
-
-    it("should handle empty params object", () => {
-      const prompt = "Hello, {{name}}!";
-      const result = insertParamsIntoPrompt(prompt, {});
-      expect(result).toBe(prompt);
-    });
-
-    it("should not replace placeholders with no matching params", () => {
-      const result = insertParamsIntoPrompt("Hello, {{name}}!", {
-        greeting: "Hi",
-      });
-      expect(result).toBe("Hello, {{name}}!");
-    });
-
-    it("should leave unmatched placeholders unchanged with partial params", () => {
-      const result = insertParamsIntoPrompt(
-        "{{greeting}}, {{name}}! Your role is {{role}}.",
-        { greeting: "Hello" },
-      );
-      expect(result).toBe("Hello, {{name}}! Your role is {{role}}.");
-    });
-
-    it("should leave all placeholders unchanged when no params match", () => {
-      const result = insertParamsIntoPrompt(
-        "{{agent_name}} uses {{model}} with {{provider}}",
-        { unrelated_key: "value", another_key: "other" },
-      );
-      expect(result).toBe("{{agent_name}} uses {{model}} with {{provider}}");
-    });
-
-    it("should handle prompts with no placeholders", () => {
-      const result = insertParamsIntoPrompt("Hello, World!", {
-        name: "Alice",
-      });
-      expect(result).toBe("Hello, World!");
-    });
-
-    it("should handle special characters in values", () => {
-      const result = insertParamsIntoPrompt("Message: {{text}}", {
-        text: "Special chars: $, *, (, )",
-      });
-      expect(result).toBe("Message: Special chars: $, *, (, )");
-    });
-  });
-
-  describe("evaluateAgent", () => {
-    it("should evaluate a simple agent with params", () => {
-      const node: AgentNode = {
-        id: "greeting",
-        type: "agent",
-        params: { userName: "Alice" },
-        prompt: "Hello, {{userName}}!",
-        children: [],
-      };
-
-      const result = evaluateAgent(node);
-      expect(result).toBe("Hello, Alice!");
-    });
-
-    it("should evaluate nested agents depth-first", () => {
-      const node: AgentNode = {
-        id: "main",
-        type: "agent",
-        params: {},
-        prompt: "Intro: {{introduction}}",
-        children: [
-          {
-            id: "introduction",
-            type: "agent",
-            params: { userName: "Bob" },
-            prompt: "Hello, {{userName}}!",
-            children: [],
-          },
-        ],
-      };
-
-      const result = evaluateAgent(node);
-      expect(result).toBe("Intro: Hello, Bob!");
-    });
-
-    it("should evaluate multiple levels of nesting", () => {
-      const node: AgentNode = {
-        id: "main",
-        type: "agent",
-        params: {},
-        prompt: "Doc: {{section}}",
-        children: [
-          {
-            id: "section",
-            type: "agent",
-            params: {},
-            prompt: "Section: {{paragraph}}",
-            children: [
-              {
-                id: "paragraph",
-                type: "agent",
-                params: { text: "content" },
-                prompt: "Para: {{text}}",
-                children: [],
-              },
-            ],
-          },
-        ],
-      };
-
-      const result = evaluateAgent(node);
-      expect(result).toBe("Doc: Section: Para: content");
-    });
-
-    it("should handle multiple children", () => {
-      const node: AgentNode = {
-        id: "document",
-        type: "agent",
-        params: {},
-        prompt: "{{header}}\n{{body}}\n{{footer}}",
-        children: [
-          {
-            id: "header",
-            type: "agent",
-            params: {},
-            prompt: "HEADER",
-            children: [],
-          },
-          {
-            id: "body",
-            type: "agent",
-            params: { content: "text" },
-            prompt: "Body: {{content}}",
-            children: [],
-          },
-          {
-            id: "footer",
-            type: "agent",
-            params: {},
-            prompt: "FOOTER",
-            children: [],
-          },
-        ],
-      };
-
-      const result = evaluateAgent(node);
-      expect(result).toBe("HEADER\nBody: text\nFOOTER");
-    });
-
-    it("should handle agent with no children or params", () => {
-      const node: AgentNode = {
-        id: "simple",
-        type: "agent",
-        params: {},
-        prompt: "Static text",
-        children: [],
-      };
-
-      const result = evaluateAgent(node);
-      expect(result).toBe("Static text");
-    });
-
-    it("should cache evaluated nodes to avoid recomputation", () => {
-      // This tests that if a node is referenced multiple times, it's only evaluated once
-      const sharedChild: AgentNode = {
-        id: "shared",
-        type: "agent",
-        params: {},
-        prompt: "Shared",
-        children: [],
-      };
-
-      const node: AgentNode = {
-        id: "main",
-        type: "agent",
-        params: {},
-        prompt: "{{shared}}",
-        children: [sharedChild],
-      };
-
-      const result = evaluateAgent(node);
-      expect(result).toBe("Shared");
-    });
-  });
-
-  describe("traverseAgentNode", () => {
-    it("should visit single node", () => {
-      const node: AgentNode = {
-        id: "root",
-        type: "agent",
-        params: {},
-        prompt: "test",
-        children: [],
-      };
-
-      const visited: Array<{ id: string; parentId: string | null }> = [];
-      traverseAgentNode(node, (n, parentId) => {
-        visited.push({ id: n.id, parentId });
-      });
-
-      expect(visited).toEqual([{ id: "root", parentId: null }]);
-    });
-
-    it("should visit nodes in depth-first order", () => {
-      const node: AgentNode = {
-        id: "root",
-        type: "agent",
-        params: {},
-        prompt: "test",
-        children: [
-          {
-            id: "child1",
-            type: "agent",
-            params: {},
-            prompt: "test",
-            children: [
-              {
-                id: "grandchild1",
-                type: "agent",
-                params: {},
-                prompt: "test",
-                children: [],
-              },
-            ],
-          },
-          {
-            id: "child2",
-            type: "agent",
-            params: {},
-            prompt: "test",
-            children: [],
-          },
-        ],
-      };
-
-      const visited: string[] = [];
-      traverseAgentNode(node, (n) => {
-        visited.push(n.id);
-      });
-
-      expect(visited).toEqual(["root", "child1", "grandchild1", "child2"]);
-    });
-
-    it("should pass correct parent ID to callback", () => {
-      const node: AgentNode = {
-        id: "root",
-        type: "agent",
-        params: {},
-        prompt: "test",
-        children: [
-          {
-            id: "child1",
-            type: "agent",
-            params: {},
-            prompt: "test",
-            children: [
-              {
-                id: "grandchild1",
-                type: "agent",
-                params: {},
-                prompt: "test",
-                children: [],
-              },
-            ],
-          },
-          {
-            id: "child2",
-            type: "agent",
-            params: {},
-            prompt: "test",
-            children: [],
-          },
-        ],
-      };
-
-      const relationships: Array<{ id: string; parentId: string | null }> = [];
-      traverseAgentNode(node, (n, parentId) => {
-        relationships.push({ id: n.id, parentId });
-      });
-
-      expect(relationships).toEqual([
-        { id: "root", parentId: null },
-        { id: "child1", parentId: "root" },
-        { id: "grandchild1", parentId: "child1" },
-        { id: "child2", parentId: "root" },
-      ]);
-    });
-  });
-
-  describe("formatEntityRequest", () => {
-    it("should format a simple agent node", () => {
-      const node: AgentNode = {
-        id: "greeting",
-        type: "agent",
-        name: "greeting-agent",
-        majorVersion: 1,
-        params: { userName: "Alice" },
-        prompt: "Hello, {{userName}}!",
-        children: [],
-      };
-
-      const request = formatEntityRequest(node);
-
-      expect(request.entities.rootId).toBe("greeting");
-      expect(request.entities.rootType).toBe("agent");
-      expect(request.entities.map["greeting"]).toEqual({
-        id: "greeting",
-        type: "agent",
-        name: "greeting-agent",
-        majorVersion: 1,
-        prompt: "Hello, {{userName}}!",
-        paramKeys: ["userName"],
-        childrenIds: [],
-        childrenTypes: [],
-        model: undefined,
-        provider: undefined,
-        temperature: undefined,
-        maxTokens: undefined,
-        topP: undefined,
-        frequencyPenalty: undefined,
-        presencePenalty: undefined,
-        stopSequences: undefined,
-        tools: undefined,
-      });
-    });
-
-    it("should format nested agent nodes", () => {
-      const node: AgentNode = {
-        id: "main",
-        type: "agent",
-        params: {},
-        prompt: "Intro: {{introduction}}",
-        children: [
-          {
-            id: "introduction",
-            type: "agent",
-            params: { userName: "Bob" },
-            prompt: "Hello, {{userName}}!",
-            children: [],
-          },
-        ],
-      };
-
-      const request = formatEntityRequest(node);
-
-      expect(request.entities.rootId).toBe("main");
-      expect(request.entities.rootType).toBe("agent");
-      expect(request.entities.map["main"]).toEqual({
-        id: "main",
-        type: "agent",
-        name: undefined,
-        majorVersion: undefined,
-        prompt: "Intro: {{introduction}}",
-        paramKeys: ["introduction"],
-        childrenIds: ["introduction"],
-        childrenTypes: ["agent"],
-        model: undefined,
-        provider: undefined,
-        temperature: undefined,
-        maxTokens: undefined,
-        topP: undefined,
-        frequencyPenalty: undefined,
-        presencePenalty: undefined,
-        stopSequences: undefined,
-        tools: undefined,
-      });
-      expect(request.entities.map["introduction"]).toEqual({
-        id: "introduction",
-        type: "agent",
-        name: undefined,
-        majorVersion: undefined,
-        prompt: "Hello, {{userName}}!",
-        paramKeys: ["userName"],
-        childrenIds: [],
-        childrenTypes: [],
-        model: undefined,
-        provider: undefined,
-        temperature: undefined,
-        maxTokens: undefined,
-        topP: undefined,
-        frequencyPenalty: undefined,
-        presencePenalty: undefined,
-        stopSequences: undefined,
-        tools: undefined,
-      });
-    });
-
-    it("should format agent node with hyperparameters", () => {
-      const node: AgentNode = {
-        id: "greeting",
-        type: "agent",
-        params: {},
-        prompt: "Hello!",
-        children: [],
-        model: "gpt-4",
-        provider: "openai",
-        temperature: 0.7,
-        maxTokens: 1000,
-        topP: 0.9,
-        frequencyPenalty: 0.5,
-        presencePenalty: 0.3,
-        stopSequences: ["END"],
-      };
-
-      const request = formatEntityRequest(node);
-
-      expect(request.entities.map["greeting"].model).toBe("gpt-4");
-      expect(request.entities.map["greeting"].provider).toBe("openai");
-      expect(request.entities.map["greeting"].temperature).toBe(0.7);
-      expect(request.entities.map["greeting"].maxTokens).toBe(1000);
-      expect(request.entities.map["greeting"].topP).toBe(0.9);
-      expect(request.entities.map["greeting"].frequencyPenalty).toBe(0.5);
-      expect(request.entities.map["greeting"].presencePenalty).toBe(0.3);
-      expect(request.entities.map["greeting"].stopSequences).toEqual(["END"]);
-    });
-
-    it("should format deeply nested structure", () => {
-      const node: AgentNode = {
-        id: "doc",
-        type: "agent",
-        params: {},
-        prompt: "{{section}}",
-        children: [
-          {
-            id: "section",
-            type: "agent",
-            params: {},
-            prompt: "{{paragraph}}",
-            children: [
-              {
-                id: "paragraph",
-                type: "agent",
-                params: { text: "content" },
-                prompt: "{{text}}",
-                children: [],
-              },
-            ],
-          },
-        ],
-      };
-
-      const request = formatEntityRequest(node);
-
-      expect(request.entities.rootId).toBe("doc");
-      expect(request.entities.rootType).toBe("agent");
-      expect(Object.keys(request.entities.map)).toHaveLength(3);
-      expect(request.entities.map["doc"].childrenIds).toEqual(["section"]);
-      expect(request.entities.map["section"].childrenIds).toEqual(["paragraph"]);
-      expect(request.entities.map["paragraph"].paramKeys).toEqual(["text"]);
-    });
-
-    it("should handle multiple children", () => {
-      const node: AgentNode = {
-        id: "document",
-        type: "agent",
-        params: {},
-        prompt: "{{header}} {{body}} {{footer}}",
-        children: [
-          {
-            id: "header",
-            type: "agent",
-            params: {},
-            prompt: "HEADER",
-            children: [],
-          },
-          {
-            id: "body",
-            type: "agent",
-            params: { content: "text" },
-            prompt: "{{content}}",
-            children: [],
-          },
-          {
-            id: "footer",
-            type: "agent",
-            params: {},
-            prompt: "FOOTER",
-            children: [],
-          },
-        ],
-      };
-
-      const request = formatEntityRequest(node);
-
-      expect(request.entities.map["document"].childrenIds).toEqual([
-        "header",
-        "body",
-        "footer",
-      ]);
-      expect(request.entities.map["document"].childrenTypes).toEqual([
-        "agent",
-        "agent",
-        "agent",
-      ]);
-      expect(Object.keys(request.entities.map)).toHaveLength(4);
-    });
-  });
+  // Note: Parameter validation and evaluation is now handled server-side by the V2 API
+  // The following functions were removed: insertParamsIntoPrompt, evaluateAgent, traverseAgentNode, formatEntityRequest
 
   describe("updateAgentNodes", () => {
     it("should update a single node", () => {
@@ -927,6 +371,234 @@ describe("utils", () => {
 
       expect(updated.children[0].prompt).toBe("new");
       expect(updated.children[1].prompt).toBe("unchanged");
+    });
+  });
+
+  describe("formatEntityV2Request", () => {
+    it("should format a simple agent node", () => {
+      const node: AgentNode = {
+        id: "greeting",
+        type: "agent",
+        name: "greeting-agent",
+        majorVersion: 1,
+        params: { userName: "Alice" },
+        prompt: "Hello, {{userName}}!",
+        children: [],
+        model: "gpt-4",
+        provider: "openai",
+      };
+
+      const request = formatEntityV2Request(node);
+
+      expect(request.id).toBe("greeting");
+      expect(request.type).toBe("agent");
+      expect(request.name).toBe("greeting-agent");
+      expect(request.majorVersion).toBe(1);
+      expect(request.prompt).toBe("Hello, {{userName}}!");
+      expect(request.params).toEqual({ userName: "Alice" });
+      expect(request.data?.model).toBe("gpt-4");
+      expect(request.data?.provider).toBe("openai");
+    });
+
+    it("should format nested agent nodes with param values", () => {
+      const node: AgentNode = {
+        id: "main",
+        type: "agent",
+        params: {},
+        prompt: "Intro: {{introduction}}",
+        children: [
+          {
+            id: "introduction",
+            type: "prompt",
+            params: { userName: "Bob" },
+            prompt: "Hello, {{userName}}!",
+            children: [],
+          },
+        ],
+        model: "gpt-4",
+        provider: "openai",
+      };
+
+      const request = formatEntityV2Request(node);
+
+      expect(request.id).toBe("main");
+      expect(request.type).toBe("agent");
+      expect(request.params).toBeDefined();
+      expect(request.params?.introduction).toBeDefined();
+
+      // The nested entity should be a full EntityV2Request object
+      const nestedIntro = request.params?.introduction as Record<string, unknown>;
+      expect(nestedIntro.id).toBe("introduction");
+      expect(nestedIntro.type).toBe("prompt");
+      expect(nestedIntro.prompt).toBe("Hello, {{userName}}!");
+      expect(nestedIntro.params).toEqual({ userName: "Bob" });
+    });
+
+    it("should format agent node with all hyperparameters in data", () => {
+      const node: AgentNode = {
+        id: "greeting",
+        type: "agent",
+        params: {},
+        prompt: "Hello!",
+        children: [],
+        model: "gpt-4",
+        provider: "openai",
+        temperature: 0.7,
+        maxTokens: 1000,
+        topP: 0.9,
+        frequencyPenalty: 0.5,
+        presencePenalty: 0.3,
+        stopSequences: ["END"],
+        tools: ["search", "calculator"],
+      };
+
+      const request = formatEntityV2Request(node);
+
+      expect(request.data).toBeDefined();
+      expect(request.data?.model).toBe("gpt-4");
+      expect(request.data?.provider).toBe("openai");
+      expect(request.data?.temperature).toBe(0.7);
+      expect(request.data?.maxTokens).toBe(1000);
+      expect(request.data?.topP).toBe(0.9);
+      expect(request.data?.frequencyPenalty).toBe(0.5);
+      expect(request.data?.presencePenalty).toBe(0.3);
+      expect(request.data?.stopSequences).toEqual(["END"]);
+      expect(request.data?.tools).toEqual(["search", "calculator"]);
+    });
+
+    it("should not include data for non-agent types", () => {
+      const node: EntityNode = {
+        id: "my-prompt",
+        type: "prompt",
+        params: { value: "test" },
+        prompt: "Value: {{value}}",
+        children: [],
+      };
+
+      const request = formatEntityV2Request(node);
+
+      expect(request.id).toBe("my-prompt");
+      expect(request.type).toBe("prompt");
+      expect(request.data).toBeUndefined();
+    });
+
+    it("should format deeply nested structure", () => {
+      const node: AgentNode = {
+        id: "doc",
+        type: "agent",
+        params: {},
+        prompt: "{{section}}",
+        children: [
+          {
+            id: "section",
+            type: "prompt",
+            params: {},
+            prompt: "{{paragraph}}",
+            children: [
+              {
+                id: "paragraph",
+                type: "prompt",
+                params: { text: "content" },
+                prompt: "{{text}}",
+                children: [],
+              },
+            ],
+          },
+        ],
+        model: "gpt-4",
+        provider: "openai",
+      };
+
+      const request = formatEntityV2Request(node);
+
+      expect(request.id).toBe("doc");
+      const section = request.params?.section as Record<string, unknown>;
+      expect(section.id).toBe("section");
+      const paragraph = (section.params as Record<string, unknown>)?.paragraph as Record<string, unknown>;
+      expect(paragraph.id).toBe("paragraph");
+      expect(paragraph.params).toEqual({ text: "content" });
+    });
+
+    it("should mix string params and nested entities", () => {
+      const node: AgentNode = {
+        id: "document",
+        type: "agent",
+        params: { title: "My Document" },
+        prompt: "{{title}}: {{body}}",
+        children: [
+          {
+            id: "body",
+            type: "prompt",
+            params: { content: "Hello World" },
+            prompt: "Content: {{content}}",
+            children: [],
+          },
+        ],
+        model: "gpt-4",
+        provider: "openai",
+      };
+
+      const request = formatEntityV2Request(node);
+
+      expect(request.params?.title).toBe("My Document"); // String param
+      expect(typeof request.params?.body).toBe("object"); // Nested entity
+      const body = request.params?.body as Record<string, unknown>;
+      expect(body.id).toBe("body");
+    });
+
+    it("should omit params when empty", () => {
+      const node: EntityNode = {
+        id: "simple",
+        type: "prompt",
+        params: {},
+        prompt: "Static text",
+        children: [],
+      };
+
+      const request = formatEntityV2Request(node);
+
+      expect(request.params).toBeUndefined();
+    });
+
+    it("should handle multiple children", () => {
+      const node: AgentNode = {
+        id: "document",
+        type: "agent",
+        params: {},
+        prompt: "{{header}} {{body}} {{footer}}",
+        children: [
+          {
+            id: "header",
+            type: "prompt",
+            params: {},
+            prompt: "HEADER",
+            children: [],
+          },
+          {
+            id: "body",
+            type: "prompt",
+            params: { content: "text" },
+            prompt: "{{content}}",
+            children: [],
+          },
+          {
+            id: "footer",
+            type: "prompt",
+            params: {},
+            prompt: "FOOTER",
+            children: [],
+          },
+        ],
+        model: "gpt-4",
+        provider: "openai",
+      };
+
+      const request = formatEntityV2Request(node);
+
+      expect(Object.keys(request.params || {})).toHaveLength(3);
+      expect(request.params?.header).toBeDefined();
+      expect(request.params?.body).toBeDefined();
+      expect(request.params?.footer).toBeDefined();
     });
   });
 });

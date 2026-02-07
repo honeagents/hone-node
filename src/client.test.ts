@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Hone, createHoneClient } from "./client";
-import { HoneConfig, Message, EntityResponse } from "./types";
+import { HoneConfig, Message, EntityV2Response } from "./types";
 
 // Mock fetch globally
 const mockFetch = vi.fn();
@@ -74,9 +74,11 @@ describe("Hone Client", () => {
 
   describe("agent", () => {
     it("should fetch agent successfully and return evaluated result with hyperparameters", async () => {
-      const mockResponse: EntityResponse = {
-        greeting: {
-          prompt: "Hello, {{userName}}! Welcome.",
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "Hello, Alice! Welcome.",
+        template: "Hello, {{userName}}! Welcome.",
+        type: "agent",
+        data: {
           model: "gpt-4",
           provider: "openai",
           temperature: 0.7,
@@ -91,7 +93,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: mockResponse }),
+        json: async () => mockResponse,
       });
 
       const result = await client.agent("greeting", {
@@ -114,7 +116,7 @@ describe("Hone Client", () => {
       expect(result.stopSequences).toEqual(["END"]);
       expect(mockFetch).toHaveBeenCalledTimes(1);
       expect(mockFetch).toHaveBeenCalledWith(
-        "https://honeagents.ai/api/sync_entities",
+        "https://honeagents.ai/api/v2/entities",
         expect.objectContaining({
           method: "POST",
           headers: expect.objectContaining({
@@ -125,44 +127,43 @@ describe("Hone Client", () => {
       );
     });
 
-    it("should use fallback prompt and options when API call fails", async () => {
+    it("should throw error when API call fails (no fallback)", async () => {
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
-
-      const result = await client.agent("greeting", {
-        model: "gpt-3.5-turbo",
-        provider: "openai",
-        defaultPrompt: "Hi, {{userName}}!",
-        temperature: 0.5,
-        params: {
-          userName: "Bob",
-        },
-      });
-
-      expect(result.systemPrompt).toBe("Hi, Bob!");
-      expect(result.model).toBe("gpt-3.5-turbo");
-      expect(result.provider).toBe("openai");
-      expect(result.temperature).toBe(0.5);
-      expect(consoleLogSpy).toHaveBeenCalledWith(
-        "Error fetching agent, using fallback:",
-        expect.any(Error),
-      );
-
-      consoleLogSpy.mockRestore();
+      await expect(
+        client.agent("greeting", {
+          model: "gpt-3.5-turbo",
+          provider: "openai",
+          defaultPrompt: "Hi, {{userName}}!",
+          temperature: 0.5,
+          params: {
+            userName: "Bob",
+          },
+        })
+      ).rejects.toThrow("Network error");
     });
 
-    it("should handle nested agents", async () => {
-      const mockResponse: EntityResponse = {
-        main: { prompt: "Welcome: {{intro}}", model: "gpt-4", provider: "openai", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [], tools: [] },
-        intro: { prompt: "Hello, {{userName}}!", model: "gpt-4", provider: "openai", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [], tools: [] },
+    it("should handle nested agents (V2 evaluates server-side)", async () => {
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "Welcome: Hello, Charlie!",
+        template: "Welcome: {{intro}}",
+        type: "agent",
+        data: {
+          model: "gpt-4",
+          provider: "openai",
+          temperature: null,
+          maxTokens: null,
+          topP: null,
+          frequencyPenalty: null,
+          presencePenalty: null,
+          stopSequences: [],
+          tools: [],
+        },
       };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: mockResponse }),
+        json: async () => mockResponse,
       });
 
       const result = await client.agent("main", {
@@ -185,13 +186,26 @@ describe("Hone Client", () => {
     });
 
     it("should handle agent with no parameters", async () => {
-      const mockResponse: EntityResponse = {
-        static: { prompt: "This is a static prompt", model: "claude-3", provider: "anthropic", temperature: null, maxTokens: null, topP: null, frequencyPenalty: null, presencePenalty: null, stopSequences: [], tools: [] },
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "This is a static prompt",
+        template: "This is a static prompt",
+        type: "agent",
+        data: {
+          model: "claude-3",
+          provider: "anthropic",
+          temperature: null,
+          maxTokens: null,
+          topP: null,
+          frequencyPenalty: null,
+          presencePenalty: null,
+          stopSequences: [],
+          tools: [],
+        },
       };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: mockResponse }),
+        json: async () => mockResponse,
       });
 
       const result = await client.agent("static", {
@@ -204,7 +218,7 @@ describe("Hone Client", () => {
       expect(result.model).toBe("claude-3");
     });
 
-    it("should use fallback when API returns error status", async () => {
+    it("should throw error when API returns error status (no fallback)", async () => {
       mockFetch.mockResolvedValueOnce({
         ok: false,
         status: 404,
@@ -212,29 +226,36 @@ describe("Hone Client", () => {
         json: async () => ({ message: "Agent not found" }),
       });
 
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
-
-      const result = await client.agent("missing", {
-        model: "gpt-4",
-        provider: "openai",
-        defaultPrompt: "Fallback prompt",
-      });
-
-      expect(result.systemPrompt).toBe("Fallback prompt");
-
-      consoleLogSpy.mockRestore();
+      await expect(
+        client.agent("missing", {
+          model: "gpt-4",
+          provider: "openai",
+          defaultPrompt: "Fallback prompt",
+        })
+      ).rejects.toThrow("Hone API error (404)");
     });
 
     it("should handle majorVersion and name in agent options", async () => {
-      const mockResponse = {
-        "greeting-v2": { prompt: "Hello v2!" },
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "Hello v2!",
+        template: "Hello v2!",
+        type: "agent",
+        data: {
+          model: "gpt-4",
+          provider: "openai",
+          temperature: null,
+          maxTokens: null,
+          topP: null,
+          frequencyPenalty: null,
+          presencePenalty: null,
+          stopSequences: [],
+          tools: [],
+        },
       };
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: mockResponse }),
+        json: async () => mockResponse,
       });
 
       await client.agent("greeting-v2", {
@@ -248,14 +269,32 @@ describe("Hone Client", () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
 
-      expect(body.entities.map["greeting-v2"].majorVersion).toBe(2);
-      expect(body.entities.map["greeting-v2"].name).toBe("greeting");
+      // V2 request format
+      expect(body.majorVersion).toBe(2);
+      expect(body.name).toBe("greeting");
     });
 
     it("should send correct request format to API", async () => {
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "Test value1",
+        template: "Test {{param1}}",
+        type: "agent",
+        data: {
+          model: "gpt-4",
+          provider: "openai",
+          temperature: null,
+          maxTokens: null,
+          topP: null,
+          frequencyPenalty: null,
+          presencePenalty: null,
+          stopSequences: [],
+          tools: [],
+        },
+      };
+
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: {} }),
+        json: async () => mockResponse,
       });
 
       await client.agent("test", {
@@ -270,23 +309,36 @@ describe("Hone Client", () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
 
-      expect(body.entities).toHaveProperty("rootId", "test");
-      expect(body.entities).toHaveProperty("map");
-      // Check key fields - the format omits undefined values and includes childrenTypes
-      const testEntity = body.entities.map["test"];
-      expect(testEntity.id).toBe("test");
-      expect(testEntity.type).toBe("agent");
-      expect(testEntity.prompt).toBe("Test {{param1}}");
-      expect(testEntity.paramKeys).toEqual(["param1"]);
-      expect(testEntity.childrenIds).toEqual([]);
-      expect(testEntity.model).toBe("gpt-4");
-      expect(testEntity.provider).toBe("openai");
+      // V2 request format - flat structure
+      expect(body.id).toBe("test");
+      expect(body.type).toBe("agent");
+      expect(body.prompt).toBe("Test {{param1}}");
+      expect(body.params).toEqual({ param1: "value1" });
+      expect(body.data.model).toBe("gpt-4");
+      expect(body.data.provider).toBe("openai");
     });
 
     it("should send hyperparameters in request", async () => {
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "Test prompt",
+        template: "Test prompt",
+        type: "agent",
+        data: {
+          model: "gpt-4",
+          provider: "openai",
+          temperature: 0.7,
+          maxTokens: 1000,
+          topP: 0.9,
+          frequencyPenalty: 0.5,
+          presencePenalty: 0.3,
+          stopSequences: ["END"],
+          tools: [],
+        },
+      };
+
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: {} }),
+        json: async () => mockResponse,
       });
 
       await client.agent("test", {
@@ -304,21 +356,24 @@ describe("Hone Client", () => {
       const callArgs = mockFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
 
-      expect(body.entities.map["test"].model).toBe("gpt-4");
-      expect(body.entities.map["test"].provider).toBe("openai");
-      expect(body.entities.map["test"].temperature).toBe(0.7);
-      expect(body.entities.map["test"].maxTokens).toBe(1000);
-      expect(body.entities.map["test"].topP).toBe(0.9);
-      expect(body.entities.map["test"].frequencyPenalty).toBe(0.5);
-      expect(body.entities.map["test"].presencePenalty).toBe(0.3);
-      expect(body.entities.map["test"].stopSequences).toEqual(["END"]);
+      // V2 format - hyperparameters in data
+      expect(body.data.model).toBe("gpt-4");
+      expect(body.data.provider).toBe("openai");
+      expect(body.data.temperature).toBe(0.7);
+      expect(body.data.maxTokens).toBe(1000);
+      expect(body.data.topP).toBe(0.9);
+      expect(body.data.frequencyPenalty).toBe(0.5);
+      expect(body.data.presencePenalty).toBe(0.3);
+      expect(body.data.stopSequences).toEqual(["END"]);
     });
 
     it("should return null for missing hyperparameters from API", async () => {
       // API returns only model and temperature, others are null
-      const mockResponse: EntityResponse = {
-        test: {
-          prompt: "Hello",
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "Hello",
+        template: "Hello",
+        type: "agent",
+        data: {
           model: "gpt-4",
           provider: "openai",
           temperature: 0.5,
@@ -333,7 +388,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: mockResponse }),
+        json: async () => mockResponse,
       });
 
       const result = await client.agent("test", {
@@ -355,9 +410,11 @@ describe("Hone Client", () => {
 
     it("should prefer API hyperparameters over SDK defaults", async () => {
       // API returns different values than SDK defaults
-      const mockResponse: EntityResponse = {
-        test: {
-          prompt: "Hello",
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "Hello",
+        template: "Hello",
+        type: "agent",
+        data: {
           model: "claude-3-opus",
           provider: "anthropic",
           temperature: 0.9,
@@ -372,7 +429,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: mockResponse }),
+        json: async () => mockResponse,
       });
 
       // SDK provides different defaults
@@ -401,9 +458,11 @@ describe("Hone Client", () => {
 
     it("should use SDK defaults when API returns null hyperparameters", async () => {
       // API explicitly returns null for hyperparameters (except model/provider which come from SDK)
-      const mockResponse: EntityResponse = {
-        test: {
-          prompt: "Hello",
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "Hello",
+        template: "Hello",
+        type: "agent",
+        data: {
           model: null,
           provider: null,
           temperature: null,
@@ -418,7 +477,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: mockResponse }),
+        json: async () => mockResponse,
       });
 
       // SDK provides defaults
@@ -443,9 +502,11 @@ describe("Hone Client", () => {
     });
 
     it("should return SDK model/provider even when API returns null", async () => {
-      const mockResponse: EntityResponse = {
-        test: {
-          prompt: "Hello",
+      const mockResponse: EntityV2Response = {
+        evaluatedPrompt: "Hello",
+        template: "Hello",
+        type: "agent",
+        data: {
           model: null,
           provider: null,
           temperature: null,
@@ -460,7 +521,7 @@ describe("Hone Client", () => {
 
       mockFetch.mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ entities: mockResponse }),
+        json: async () => mockResponse,
       });
 
       // model and provider are required in SDK
@@ -482,37 +543,23 @@ describe("Hone Client", () => {
       expect(result.stopSequences).toEqual([]);
     });
 
-    it("should return SDK defaults in fallback when API fails", async () => {
+    it("should throw error when API fails (no fallback)", async () => {
       mockFetch.mockRejectedValueOnce(new Error("Network error"));
 
-      const consoleLogSpy = vi
-        .spyOn(console, "log")
-        .mockImplementation(() => {});
-
-      const result = await client.agent("test", {
-        model: "gpt-4",
-        provider: "openai",
-        defaultPrompt: "Hello {{name}}",
-        temperature: 0.7,
-        maxTokens: 1000,
-        topP: 0.9,
-        frequencyPenalty: 0.1,
-        presencePenalty: 0.2,
-        stopSequences: ["END"],
-        params: { name: "World" },
-      });
-
-      expect(result.systemPrompt).toBe("Hello World");
-      expect(result.model).toBe("gpt-4");
-      expect(result.provider).toBe("openai");
-      expect(result.temperature).toBe(0.7);
-      expect(result.maxTokens).toBe(1000);
-      expect(result.topP).toBe(0.9);
-      expect(result.frequencyPenalty).toBe(0.1);
-      expect(result.presencePenalty).toBe(0.2);
-      expect(result.stopSequences).toEqual(["END"]);
-
-      consoleLogSpy.mockRestore();
+      await expect(
+        client.agent("test", {
+          model: "gpt-4",
+          provider: "openai",
+          defaultPrompt: "Hello {{name}}",
+          temperature: 0.7,
+          maxTokens: 1000,
+          topP: 0.9,
+          frequencyPenalty: 0.1,
+          presencePenalty: 0.2,
+          stopSequences: ["END"],
+          params: { name: "World" },
+        })
+      ).rejects.toThrow("Network error");
     });
   });
 

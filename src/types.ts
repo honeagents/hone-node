@@ -460,36 +460,54 @@ export type ToolNode = EntityNode & { type: "tool" };
 export type TextPromptNode = EntityNode & { type: "prompt" };
 
 // =============================================================================
-// API Request/Response Types
+// V2 API Request/Response Types
 // =============================================================================
 
 /**
- * The request item sent to the /sync_entities endpoint.
+ * V2 Entity Request - nested structure with param values.
+ * Params can be strings OR nested entity objects.
+ * Type-specific data (hyperparameters for agents) goes under `data`.
  */
-export type EntityRequestItem = Omit<EntityNode, "children" | "params"> & {
-  paramKeys: string[];
-  childrenIds: string[];
-  childrenTypes: EntityType[];
-};
-
-/**
- * The request payload sent to the /sync_entities endpoint.
- */
-export type EntityRequest = {
-  entities: {
-    rootId: string;
-    rootType: EntityType;
-    map: Record<string, EntityRequestItem>;
-  };
-};
-
-/**
- * Single entity data from the /sync_entities response.
- */
-export type EntityResponseItem = {
-  prompt: string;
+export type EntityV2Request = {
+  id: string;
   type: EntityType;
-  // Agent-specific fields (null for tools)
+  prompt: string;
+  params?: Record<string, string | EntityV2Request>;
+  majorVersion?: number;
+  name?: string;
+  data?: EntityV2RequestData;
+};
+
+/**
+ * Type-specific data in V2 request.
+ */
+export type EntityV2RequestData = {
+  model?: string;
+  provider?: string;
+  temperature?: number;
+  maxTokens?: number;
+  topP?: number;
+  frequencyPenalty?: number;
+  presencePenalty?: number;
+  stopSequences?: string[];
+  tools?: string[];
+  [key: string]: unknown;
+};
+
+/**
+ * V2 Entity Response - evaluated result from /api/v2/entities.
+ */
+export type EntityV2Response = {
+  evaluatedPrompt: string;
+  template: string;
+  type: EntityType;
+  data: EntityV2ResponseData;
+};
+
+/**
+ * Type-specific data in V2 response.
+ */
+export type EntityV2ResponseData = {
   model: string | null;
   provider: string | null;
   temperature: number | null;
@@ -499,14 +517,6 @@ export type EntityResponseItem = {
   presencePenalty: number | null;
   stopSequences: string[];
   tools: string[];
-  // Custom extra data (for agents)
-  extra?: Record<string, unknown>;
+  [key: string]: unknown;
 };
-
-/**
- * The response received from the /sync_entities endpoint.
- * @key The entity ID
- * @value The entity data including prompt and (for agents) hyperparameters
- */
-export type EntityResponse = Record<string, EntityResponseItem>;
 

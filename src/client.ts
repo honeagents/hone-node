@@ -9,8 +9,8 @@ import {
   AgentResult,
   ToolResult,
   TextPromptResult,
-  EntityRequest,
-  EntityResponse,
+  EntityV2Request,
+  EntityV2Response,
   TrackConversationOptions,
   TrackRequest,
   TrackResponse,
@@ -25,14 +25,10 @@ import {
   normalizeGeminiContents,
 } from "./tools";
 import {
-  evaluateAgent,
-  evaluateEntity,
-  formatEntityRequest,
+  formatEntityV2Request,
   getAgentNode,
   getToolNode,
   getTextPromptNode,
-  updateAgentNodes,
-  updateEntityNodes,
 } from "./agent";
 
 const DEFAULT_BASE_URL = "https://honeagents.ai/api";
@@ -100,142 +96,78 @@ export class Hone implements HoneClient {
     options: GetAgentOptions<TExtra>
   ): Promise<AgentResult<TExtra>> {
     const node = getAgentNode(id, options);
-    try {
-      const formattedRequest = formatEntityRequest(node);
-      // Include extra data in the request
-      if (options.extra) {
-        const rootEntity = formattedRequest.entities.map[id];
-        if (rootEntity) {
-          (rootEntity as Record<string, unknown>).extra = options.extra;
-        }
-      }
 
-      const response = await this.makeRequest<
-        EntityRequest,
-        { entities: EntityResponse }
-      >("/sync_entities", "POST", formattedRequest);
+    // Format request using V2 nested structure
+    const request = formatEntityV2Request(node);
 
-      const entityMap = response.entities;
-
-      const updatedAgentNode = updateAgentNodes(node, (agentNode) => {
-        const responseItem = entityMap[agentNode.id];
-        return {
-          ...agentNode,
-          prompt: responseItem?.prompt || agentNode.prompt,
-          // Update hyperparameters from API response (if present)
-          model: responseItem?.model ?? agentNode.model,
-          temperature: responseItem?.temperature ?? agentNode.temperature,
-          maxTokens: responseItem?.maxTokens ?? agentNode.maxTokens,
-          topP: responseItem?.topP ?? agentNode.topP,
-          frequencyPenalty: responseItem?.frequencyPenalty ?? agentNode.frequencyPenalty,
-          presencePenalty: responseItem?.presencePenalty ?? agentNode.presencePenalty,
-          stopSequences: responseItem?.stopSequences ?? agentNode.stopSequences,
-        };
-      });
-
-      // Get the root agent's hyperparameters and extra from the response
-      const rootResponse = entityMap[id];
-      const extraFromResponse = (rootResponse?.extra ?? options.extra ?? {}) as TExtra;
-
-      // Params are inserted client-side for flexibility and security
-      return {
-        systemPrompt: evaluateAgent(updatedAgentNode),
-        model: rootResponse?.model ?? options.model,
-        provider: rootResponse?.provider ?? options.provider,
-        temperature: rootResponse?.temperature ?? options.temperature ?? null,
-        maxTokens: rootResponse?.maxTokens ?? options.maxTokens ?? null,
-        topP: rootResponse?.topP ?? options.topP ?? null,
-        frequencyPenalty:
-          rootResponse?.frequencyPenalty ?? options.frequencyPenalty ?? null,
-        presencePenalty:
-          rootResponse?.presencePenalty ?? options.presencePenalty ?? null,
-        stopSequences: rootResponse?.stopSequences ?? options.stopSequences ?? [],
-        tools: rootResponse?.tools ?? options.tools ?? [],
-        ...extraFromResponse,
-      } as AgentResult<TExtra>;
-    } catch (error) {
-      console.log("Error fetching agent, using fallback:", error);
-      // Fallback: use local defaults
-      const extraData = (options.extra ?? {}) as TExtra;
-      return {
-        systemPrompt: evaluateAgent(node),
-        model: options.model,
-        provider: options.provider,
-        temperature: options.temperature ?? null,
-        maxTokens: options.maxTokens ?? null,
-        topP: options.topP ?? null,
-        frequencyPenalty: options.frequencyPenalty ?? null,
-        presencePenalty: options.presencePenalty ?? null,
-        stopSequences: options.stopSequences ?? [],
-        tools: options.tools ?? [],
-        ...extraData,
-      } as AgentResult<TExtra>;
+    // Include extra data in the request
+    if (options.extra && request.data) {
+      Object.assign(request.data, options.extra);
     }
-  }
 
+    // Call V2 endpoint - server handles evaluation
+    const response = await this.makeRequest<EntityV2Request, EntityV2Response>(
+      "/v2/entities",
+      "POST",
+      request
+    );
+
+    // Extract extra data from response
+    const { model, provider, temperature, maxTokens, topP, frequencyPenalty, presencePenalty, stopSequences, tools, ...extra } = response.data;
+    const extraData = extra as TExtra;
+
+    // V2 response includes evaluated prompt - no client-side evaluation needed
+    return {
+      systemPrompt: response.evaluatedPrompt,
+      model: model ?? options.model,
+      provider: provider ?? options.provider,
+      temperature: temperature ?? options.temperature ?? null,
+      maxTokens: maxTokens ?? options.maxTokens ?? null,
+      topP: topP ?? options.topP ?? null,
+      frequencyPenalty: frequencyPenalty ?? options.frequencyPenalty ?? null,
+      presencePenalty: presencePenalty ?? options.presencePenalty ?? null,
+      stopSequences: stopSequences ?? options.stopSequences ?? [],
+      tools: tools ?? options.tools ?? [],
+      ...extraData,
+    } as AgentResult<TExtra>;
+  }
 
   async tool(id: string, options: GetToolOptions): Promise<ToolResult> {
     const node = getToolNode(id, options);
-    try {
-      const formattedRequest = formatEntityRequest(node);
-      const response = await this.makeRequest<
-        EntityRequest,
-        { entities: EntityResponse }
-      >("/sync_entities", "POST", formattedRequest);
 
-      const entityMap = response.entities;
+    // Format request using V2 nested structure
+    const request = formatEntityV2Request(node);
 
-      const updatedToolNode = updateEntityNodes(node, (entityNode) => {
-        const responseItem = entityMap[entityNode.id];
-        return {
-          ...entityNode,
-          prompt: responseItem?.prompt || entityNode.prompt,
-        };
-      });
+    // Call V2 endpoint - server handles evaluation
+    const response = await this.makeRequest<EntityV2Request, EntityV2Response>(
+      "/v2/entities",
+      "POST",
+      request
+    );
 
-      // Params are inserted client-side for flexibility and security
-      return {
-        prompt: evaluateEntity(updatedToolNode),
-      };
-    } catch (error) {
-      console.log("Error fetching tool, using fallback:", error);
-      // Fallback: use local defaults
-      return {
-        prompt: evaluateEntity(node),
-      };
-    }
+    // V2 response includes evaluated prompt - no client-side evaluation needed
+    return {
+      prompt: response.evaluatedPrompt,
+    };
   }
 
   async prompt(id: string, options: GetTextPromptOptions): Promise<TextPromptResult> {
     const node = getTextPromptNode(id, options);
-    try {
-      const formattedRequest = formatEntityRequest(node);
-      const response = await this.makeRequest<
-        EntityRequest,
-        { entities: EntityResponse }
-      >("/sync_entities", "POST", formattedRequest);
 
-      const entityMap = response.entities;
+    // Format request using V2 nested structure
+    const request = formatEntityV2Request(node);
 
-      const updatedPromptNode = updateEntityNodes(node, (entityNode) => {
-        const responseItem = entityMap[entityNode.id];
-        return {
-          ...entityNode,
-          prompt: responseItem?.prompt || entityNode.prompt,
-        };
-      });
+    // Call V2 endpoint - server handles evaluation
+    const response = await this.makeRequest<EntityV2Request, EntityV2Response>(
+      "/v2/entities",
+      "POST",
+      request
+    );
 
-      // Params are inserted client-side for flexibility and security
-      return {
-        text: evaluateEntity(updatedPromptNode),
-      };
-    } catch (error) {
-      console.log("Error fetching prompt, using fallback:", error);
-      // Fallback: use local defaults
-      return {
-        text: evaluateEntity(node),
-      };
-    }
+    // V2 response includes evaluated prompt - no client-side evaluation needed
+    return {
+      text: response.evaluatedPrompt,
+    };
   }
 
   async track(
